@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/background_outline"
+    android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal"
+    android:layout_gravity="end|top"
+    android:gravity="center_vertical|end"
+    android:layout_marginTop="24dp"
+    android:background="@drawable/notification_outline"
+    >
+
+    <LinearLayout
+        android:id="@+id/inner_background"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center"
+        android:layout_marginStart="5dp"
+        android:background="@drawable/notification_background"
+        >
+
+        <ImageView
+            android:id="@+id/notification_icon"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="icon"
+            tools:srcCompat="@drawable/lb_ic_more"
+            android:layout_margin="12dp"
+            />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginEnd="12dp"
+            >
+
+            <TextView
+                android:id="@+id/notification_title"
+                style="@style/TextAppearance.Leanback.DetailsDescriptionSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="Some Phone connected"
+                android:lines="1"
+                android:ellipsize="marquee"
+                />
+
+            <TextView
+                android:id="@+id/notification_description"
+                style="@style/TextAppearance.Leanback.DetailsDescriptionBody"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                tools:text="10.4.20.69"
+                android:lines="1"
+                android:ellipsize="marquee"
+                />
+
+
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+
+</FrameLayout>

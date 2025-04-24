@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="@color/overlay_background"
+    android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
+    >
+
+    <ScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="@color/lb_basic_card_bg_color"
+        >
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:padding="24dp"
+            >
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp"
+                >
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginVertical="12dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.Title"
+                    android:text="@string/title_pairing_popup"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.Header"
+                    android:textAllCaps="false"
+                    android:text="@string/label_pairing_popup_code"
+                    />
+
+                <TextView
+                    android:id="@+id/pairing_code_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionTitle"
+                    tools:text="42069"
+                    />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.Header"
+                    android:text="@string/label_pairing_popup_fingerprint"
+                    />
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginTop="6dp"
+                    android:padding="8dp"
+                    android:gravity="center_horizontal"
+                    android:background="@color/lb_basic_card_info_bg_color"
+                    >
+
+                    <TextView
+                        android:id="@+id/certificate_fingerprint_elevated_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionSubtitle"
+                        tools:text="de ad de ad be ef"
+                        />
+
+                    <TextView
+                        android:id="@+id/certificate_fingerprint_text"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:maxWidth="420dp"
+                        android:textAlignment="center"
+                        android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionBody"
+                        tools:text="c2 6c 06 55 12 80 55 74 ca d8 38 1f 22 65 8e f3 51 80 b0 22 d7 32 f2 2b 9c bb bc de 54 bb 23 de" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                >
+
+                <Button
+                    android:id="@+id/cancel_button"
+                    style="@style/Widget.Leanback.DetailsActionButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="24dp"
+                    android:text="@string/button_cancel"
+                    />
+
+                <Button
+                    android:id="@+id/cancel_forawhile_button"
+                    style="@style/Widget.Leanback.DetailsActionButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/button_pairing_popup_disable_for_time"
+                    />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</FrameLayout>

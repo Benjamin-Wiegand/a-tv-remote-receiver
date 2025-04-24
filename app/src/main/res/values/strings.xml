@@ -1,0 +1,23 @@
+<resources>
+    <string name="app_name">A TV Remote Receiver</string>
+    <string name="accessibility_input_service_label">A TV Remote Inputs</string>
+    <string name="accessibility_input_service_description">Allows control of your device via a remote client</string>
+
+    <!-- general ui -->
+    <string name="button_cancel">Cancel</string>
+
+    <!-- pairing popup -->
+    <string name="title_pairing_popup">pair remote</string>
+    <string name="label_pairing_popup_code">Pairing code</string>
+    <string name="label_pairing_popup_fingerprint">Fingerprint (make sure it matches!)</string>
+    <string name="button_pairing_popup_disable_for_time">disable pairing for 6 hours</string>
+
+    <!-- notifications -->
+    <string name="notification_pairing_complete_title">pairing complete</string>
+    <string name="notification_pairing_complete_description">new device successfully paired</string>
+
+    <string name="notification_pairing_failed_title">pairing failed</string>
+    <string name="notification_pairing_failed_description_invalid_code">invalid pairing code</string>
+
+    <string name="notification_remote_connected_title">remote connected</string>
+</resources>

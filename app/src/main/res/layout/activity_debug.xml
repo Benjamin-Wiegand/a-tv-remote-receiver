@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:id="@+id/debug"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    >
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        tools:context=".ui.DebugActivity">
+
+        <Button
+            android:id="@+id/try_bind_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="try bind" />
+
+        <Button
+            android:id="@+id/press_home_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="simulate home" />
+
+        <Button
+            android:id="@+id/show_notifs_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show notifs" />
+
+        <Button
+            android:id="@+id/show_cursor_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show fake cursor" />
+
+        <Button
+            android:id="@+id/show_pairing_dialog_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show pairing dialog" />
+
+        <Button
+            android:id="@+id/show_test_notif_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show test notification" />
+
+        <Button
+            android:id="@+id/start_server_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="start server" />
+
+        <Button
+            android:id="@+id/accessibility_settings_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="go to accessibility settings" />
+
+        <TextView
+            android:id="@+id/debug_info_text"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+            tools:text="some info" />
+
+        <Button
+            android:id="@+id/update_debug_info_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="update debug info" />
+
+    </LinearLayout>
+</ScrollView>
