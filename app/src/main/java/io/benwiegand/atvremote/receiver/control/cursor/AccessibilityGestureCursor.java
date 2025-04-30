@@ -69,6 +69,13 @@ public class AccessibilityGestureCursor extends FakeCursor {
     }
 
     @Override
+    protected void handleMouseClickLocked() {
+        // todo: untested
+        handleMouseDownLocked();
+        handleMouseUpLocked();
+    }
+
+    @Override
     public void destroy() {
         super.destroy();
         synchronized (cursorLock) {
