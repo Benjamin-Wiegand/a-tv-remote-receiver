@@ -2,7 +2,7 @@ package io.benwiegand.atvremote.receiver.control.input;
 
 import java.util.Optional;
 
-public interface VolumeInput extends InputController {
+public interface VolumeInput extends InputHandler {
     void volumeUp();
     void volumeDown();
 

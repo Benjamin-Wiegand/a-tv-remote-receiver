@@ -1,7 +1,7 @@
 package io.benwiegand.atvremote.receiver.control.input;
 
 
-public interface KeyboardInput extends InputController {
+public interface KeyboardInput extends InputHandler {
     void hideSoftKeyboard();
     void showSoftKeyboard();
     void setSoftKeyboardEnabled(boolean enabled);
