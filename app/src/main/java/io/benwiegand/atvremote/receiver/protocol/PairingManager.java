@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
+import io.benwiegand.atvremote.receiver.control.ControlNotInitializedException;
+import io.benwiegand.atvremote.receiver.control.ControlScheme;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
 public class PairingManager implements PairingCallback {
@@ -27,19 +29,17 @@ public class PairingManager implements PairingCallback {
     private PairingSession pairingSession = null;
 
     private final Context context;
-    private Context accessibilityContext = null;
     private byte[] fingerprint = null;
+
+    private final ControlScheme controlScheme;
 
     private final Map<String, String> tokenMap = new HashMap<>();
 
-    public PairingManager(Context context) {
+    public PairingManager(Context context, ControlScheme controlScheme) {
         this.context = context;
+        this.controlScheme = controlScheme;
 
         loadPairedDevices();
-    }
-
-    public void setAccessibilityContext(Context accessibilityContext) {
-        this.accessibilityContext = accessibilityContext;
     }
 
     public void setFingerprint(byte[] fingerprint) {
@@ -103,7 +103,7 @@ public class PairingManager implements PairingCallback {
         return context.getSharedPreferences(key, Context.MODE_PRIVATE);
     }
 
-    public void startPairing(Runnable cancelCallback) throws AccessibilityContextNeeded {
+    public void startPairing(Runnable cancelCallback) throws ControlNotInitializedException {
         synchronized (pairingLock) {
             if (pairingSession == null) pairingSession = createPairingSessionLocked();
             pairingSession.cancelCallbacks().add(cancelCallback);
@@ -179,16 +179,14 @@ public class PairingManager implements PairingCallback {
         return new String(cBuffer);
     }
 
-    private PairingSession createPairingSessionLocked() throws AccessibilityContextNeeded {
+    private PairingSession createPairingSessionLocked() throws ControlNotInitializedException {
         Log.i(TAG, "starting new pairing session");
 
         int code = getSecureRandom().nextInt(999999);
 
-        // todo: system app support should bypass this
-        if (accessibilityContext == null) throw new AccessibilityContextNeeded();
         if (fingerprint == null) throw new IllegalStateException("fingerprint should be set for a pairing process to initiate");
 
-        PairingDialog dialog = new PairingDialog(accessibilityContext, this, code, fingerprint);
+        PairingDialog dialog = controlScheme.getOverlayOutput().createPairingDialog(this, code, fingerprint);
         dialog.start();
 
         return new PairingSession(dialog, new LinkedList<>(), code, fingerprint);

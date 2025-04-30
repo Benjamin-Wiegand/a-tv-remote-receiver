@@ -13,11 +13,10 @@ import java.net.SocketException;
 import javax.net.ssl.SSLSocket;
 
 import io.benwiegand.atvremote.receiver.R;
-import io.benwiegand.atvremote.receiver.control.InputHandler;
-import io.benwiegand.atvremote.receiver.protocol.AccessibilityContextNeeded;
+import io.benwiegand.atvremote.receiver.control.ControlScheme;
+import io.benwiegand.atvremote.receiver.control.ControlNotInitializedException;
 import io.benwiegand.atvremote.receiver.protocol.PairingData;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
-import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 
 public class TVRemoteConnection implements Closeable {
     private static final String TAG = TVRemoteConnection.class.getSimpleName();
@@ -33,24 +32,14 @@ public class TVRemoteConnection implements Closeable {
 
     private final PairingManager pairingManager;
     private final SSLSocket socket;
-    private InputHandler inputHandler;
-    private NotificationOverlay notificationOverlay;
+    private final ControlScheme controlScheme;
 
-    public TVRemoteConnection(PairingManager pairingManager, SSLSocket socket, InputHandler inputHandler, NotificationOverlay notificationOverlay) {
+    public TVRemoteConnection(PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme) {
         this.pairingManager = pairingManager;
         this.socket = socket;
-        this.inputHandler = inputHandler;
-        this.notificationOverlay = notificationOverlay;
+        this.controlScheme = controlScheme;
 
         thread.start();
-    }
-
-    public void setInputHandler(InputHandler inputHandler) {
-        this.inputHandler = inputHandler;
-    }
-
-    public void setNotificationOverlay(NotificationOverlay notificationOverlay) {
-        this.notificationOverlay = notificationOverlay;
     }
 
     public InetAddress getRemoteAddress() {
@@ -107,8 +96,9 @@ public class TVRemoteConnection implements Closeable {
             // connection is trusted at this point
             Log.i(TAG, "remote connected: " + socket.getRemoteSocketAddress());
 
-            if (notificationOverlay != null)
-                notificationOverlay.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), androidx.leanback.R.drawable.lb_ic_sad_cloud); //todo
+            controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                    o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), androidx.leanback.R.drawable.lb_ic_sad_cloud)); // todo
+
             connectionLoop(writer, reader);
 
         } catch (SocketException e) {
@@ -134,9 +124,9 @@ public class TVRemoteConnection implements Closeable {
         // try to start pairing
         try {
             pairingManager.startPairing(cancelCallback);
-        } catch (AccessibilityContextNeeded e) {
+        } catch (ControlNotInitializedException e) {
             writer.sendLine(OP_UNREADY);
-            throw new RuntimeException("no accessibility context yet", e);
+            throw new RuntimeException("cannot display pairing overlay", e);
         }
 
         try {
@@ -160,15 +150,15 @@ public class TVRemoteConnection implements Closeable {
             if (token == null) {
                 Log.w(TAG, "pairing code was wrong");
                 writer.sendLine(OP_UNAUTHORIZED);
-                if (notificationOverlay != null)
-                    notificationOverlay.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, androidx.leanback.R.drawable.lb_ic_sad_cloud); //todo
+                controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                        o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, androidx.leanback.R.drawable.lb_ic_sad_cloud)); //todo
                 throw new RuntimeException("pairing code wrong");
             }
 
             Log.i(TAG, "pairing complete");
             writer.sendLine(token);
-            if (notificationOverlay != null)
-                notificationOverlay.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, androidx.leanback.R.drawable.lb_ic_sad_cloud); // todo
+            controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                    o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, androidx.leanback.R.drawable.lb_ic_sad_cloud)); // todo
         } finally {
             pairingManager.cancelPairing(cancelCallback);
         }
@@ -181,17 +171,6 @@ public class TVRemoteConnection implements Closeable {
     private void connectionLoop(TCPWriter writer, TCPReader reader) throws IOException, InterruptedException {
         while (!dead) {
 
-            // enter unready state until an input handler exists
-            while (inputHandler == null) {
-                writer.sendLine(OP_UNREADY);
-                String line = reader.nextLine(KEEPALIVE_TIMEOUT);  // polling on an interval
-
-                // handle keepalive
-                if (line == null) throw generateKeepaliveTimeoutException();
-                else if (line.equals(OP_PING)) writer.sendLine(OP_CONFIRM);
-                else writer.sendLine(OP_ERR);
-            }
-
             // wait for and execute next operation
             writer.sendLine(OP_READY);
             String line = reader.nextLine(KEEPALIVE_TIMEOUT);
@@ -200,61 +179,68 @@ public class TVRemoteConnection implements Closeable {
             if (line == null) throw generateKeepaliveTimeoutException();
             String[] opLine = line.split(" ");
 
-            switch (opLine[0]) {
-                case OP_DPAD_UP -> inputHandler.dpadUp();
-                case OP_DPAD_DOWN -> inputHandler.dpadDown();
-                case OP_DPAD_LEFT -> inputHandler.dpadLeft();
-                case OP_DPAD_RIGHT -> inputHandler.dpadRight();
-                case OP_DPAD_SELECT -> inputHandler.dpadSelect();
-                case OP_DPAD_LONG_PRESS -> inputHandler.dpadLongPress();
+            try {
+                switch (opLine[0]) {
+                    case OP_DPAD_UP -> controlScheme.getDirectionalPadInput().dpadUp();
+                    case OP_DPAD_DOWN -> controlScheme.getDirectionalPadInput().dpadDown();
+                    case OP_DPAD_LEFT -> controlScheme.getDirectionalPadInput().dpadLeft();
+                    case OP_DPAD_RIGHT -> controlScheme.getDirectionalPadInput().dpadRight();
+                    case OP_DPAD_SELECT -> controlScheme.getDirectionalPadInput().dpadSelect();
+                    case OP_DPAD_LONG_PRESS -> controlScheme.getDirectionalPadInput().dpadLongPress();
 
-                case OP_NAV_HOME -> inputHandler.navHome();
-                case OP_NAV_BACK -> inputHandler.navBack();
-                case OP_NAV_RECENT -> inputHandler.navRecent();
-                case OP_NAV_APPS -> inputHandler.navApps();
-                case OP_NAV_NOTIFICATIONS -> inputHandler.navNotifications();
-                case OP_NAV_QUICK_SETTINGS -> inputHandler.navQuickSettings();
+                    case OP_NAV_HOME -> controlScheme.getNavigationInput().navHome();
+                    case OP_NAV_BACK -> controlScheme.getNavigationInput().navBack();
+                    case OP_NAV_RECENT -> controlScheme.getNavigationInput().navRecent();
+                    case OP_NAV_APPS -> controlScheme.getNavigationInput().navApps();
+                    case OP_NAV_NOTIFICATIONS -> controlScheme.getNavigationInput().navNotifications();
+                    case OP_NAV_QUICK_SETTINGS -> controlScheme.getNavigationInput().navQuickSettings();
 
-                case OP_VOLUME_UP -> inputHandler.volumeUp();
-                case OP_VOLUME_DOWN -> inputHandler.volumeDown();
-                case OP_MUTE -> inputHandler.mute();
+                    case OP_VOLUME_UP -> controlScheme.getVolumeInput().volumeUp();
+                    case OP_VOLUME_DOWN -> controlScheme.getVolumeInput().volumeDown();
+                    case OP_MUTE -> controlScheme.getVolumeInput().toggleMute();
 
-                case OP_PAUSE -> inputHandler.pause();
-                case OP_NEXT_TRACK -> inputHandler.nextTrack();
-                case OP_PREV_TRACK -> inputHandler.prevTrack();
-                case OP_SKIP_BACKWARD -> inputHandler.skipBackward();
-                case OP_SKIP_FORWARD -> inputHandler.skipForward();
+                    case OP_PAUSE -> controlScheme.getMediaInput().pause();
+                    case OP_NEXT_TRACK -> controlScheme.getMediaInput().nextTrack();
+                    case OP_PREV_TRACK -> controlScheme.getMediaInput().prevTrack();
+                    case OP_SKIP_BACKWARD -> controlScheme.getMediaInput().skipBackward();
+                    case OP_SKIP_FORWARD -> controlScheme.getMediaInput().skipForward();
 
-                case OP_CURSOR_SHOW -> inputHandler.showCursor();
-                case OP_CURSOR_HIDE -> inputHandler.hideCursor();
-                case OP_CURSOR_MOVE -> {
-                    if (opLine.length != 3) {
-                        writer.sendLine(OP_ERR);
+                    case OP_CURSOR_SHOW -> controlScheme.getCursorInput().showCursor();
+                    case OP_CURSOR_HIDE -> controlScheme.getCursorInput().hideCursor();
+                    case OP_CURSOR_MOVE -> {
+                        if (opLine.length != 3) {
+                            writer.sendLine(OP_ERR);
+                            continue;
+                        }
+                        int x, y;
+                        try {
+                            x = Integer.parseInt(opLine[1]);
+                            y = Integer.parseInt(opLine[2]);
+                        } catch (NumberFormatException e) {
+                            Log.e(TAG, "malformed mouse coordinate", e);
+                            writer.sendLine(OP_ERR);
+                            continue;
+                        }
+                        controlScheme.getCursorInput().cursorMove(x, y);
+                    }
+                    case OP_CURSOR_DOWN -> controlScheme.getCursorInput().cursorDown();
+                    case OP_CURSOR_UP -> controlScheme.getCursorInput().cursorUp();
+
+                    case OP_PING -> {
+                    }
+                    default -> {
+                        writer.sendLine(OP_UNSUPPORTED);
                         continue;
                     }
-                    int x, y;
-                    try {
-                        x = Integer.parseInt(opLine[1]);
-                        y = Integer.parseInt(opLine[2]);
-                    } catch (NumberFormatException e) {
-                        Log.e(TAG, "malformed mouse coordinate", e);
-                        writer.sendLine(OP_ERR);
-                        continue;
-                    }
-                    inputHandler.cursorMove(x, y);
                 }
-                case OP_CURSOR_DOWN -> inputHandler.cursorDown();
-                case OP_CURSOR_UP -> inputHandler.cursorUp();
 
-                case OP_PING -> {}
-                default -> {
-                    writer.sendLine(OP_UNSUPPORTED);
-                    continue;
-                }
+                // no exceptions happened, assume success
+                writer.sendLine(OP_CONFIRM);
+
+            } catch (ControlNotInitializedException e) {
+                // todo: error messages still need implementation
+                writer.sendLine(OP_ERR);
             }
-
-            writer.sendLine(OP_CONFIRM);
-
         }
 
     }

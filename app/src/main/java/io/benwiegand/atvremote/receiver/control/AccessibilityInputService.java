@@ -26,12 +26,17 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.cursor.AccessibilityGestureCursor;
-import io.benwiegand.atvremote.receiver.control.cursor.CursorController;
+import io.benwiegand.atvremote.receiver.control.input.CursorInput;
+import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
+import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
@@ -46,7 +51,12 @@ public class AccessibilityInputService extends AccessibilityService {
     private final AccessibilityInputHandler binder = new AccessibilityInputHandler();
     private final BroadcastReceiver receiver = new Receiver();
 
-    private CursorController cursorController = null;
+    private CursorInput cursorInput = null;
+    private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
+    private final NavigationInput navigationInput = new NavigationInputHandler();
+    private final VolumeInput volumeInput = new VolumeInputHandler();
+    private final OverlayOutput overlayOutput = new OverlayOutputHandler();
+
     private NotificationOverlay notificationOverlay = null;
 
 
@@ -62,7 +72,7 @@ public class AccessibilityInputService extends AccessibilityService {
                 .getInstance(this)
                 .registerReceiver(receiver, filter);
 
-        cursorController = new AccessibilityGestureCursor(this);
+        cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
 
@@ -81,7 +91,7 @@ public class AccessibilityInputService extends AccessibilityService {
     @Override
     public boolean onUnbind(Intent intent) {
         Log.d(TAG, "onUnbind()");
-        if (cursorController != null) cursorController.destroy();
+        if (cursorInput != null) cursorInput.destroy();
         return super.onUnbind(intent);
     }
 
@@ -213,42 +223,7 @@ public class AccessibilityInputService extends AccessibilityService {
         return rankings.remove(0).node();
     }
 
-    public class AccessibilityInputHandler extends Binder implements InputHandler {
-
-        public void showPairingDialog() {
-
-            AtomicReference<PairingDialog> pd = new AtomicReference<>();
-
-            PairingCallback cb = new PairingCallback() {
-                @Override
-                public void cancel() {
-                    pd.get().destroy();
-                }
-
-                @Override
-                public void disablePairingForAWhile(TimeUnit timeUnit, long period) {
-                    pd.get().destroy();
-                }
-            };
-
-            pd.set(new PairingDialog(AccessibilityInputService.this, cb, 696969, "deez nuts".getBytes(StandardCharsets.UTF_8)));
-            pd.get().start();
-        }
-
-        public void showTestNotification() {
-            notificationOverlay.displayNotification("Test notification", "this is a test", R.drawable.ic_launcher_foreground);
-
-        }
-
-        @Override
-        public int getScreenWidth() {
-            return getResolution().x;
-        }
-
-        @Override
-        public int getScreenHeight() {
-            return getResolution().y;
-        }
+    public class DirectionalPadInputHandler implements DirectionalPadInput {
 
         @Override
         public void dpadDown() {
@@ -312,6 +287,14 @@ public class AccessibilityInputService extends AccessibilityService {
         }
 
         @Override
+        public void destroy() {
+
+        }
+    }
+
+    public class NavigationInputHandler implements NavigationInput {
+
+        @Override
         public void navHome() {
             performGlobalAction(GLOBAL_ACTION_HOME);
         }
@@ -344,7 +327,13 @@ public class AccessibilityInputService extends AccessibilityService {
             performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);
         }
 
-        // todo: power (sleep and menu)
+        @Override
+        public void destroy() {
+
+        }
+    }
+
+    public class VolumeInputHandler implements VolumeInput {
 
         @Override
         public void volumeUp() {
@@ -359,129 +348,109 @@ public class AccessibilityInputService extends AccessibilityService {
         }
 
         @Override
-        public void mute() {
+        public Optional<Boolean> getMute() {
+            // todo
+            return Optional.empty();
+        }
+
+        @Override
+        public void setMute(boolean muted) {
+            int input = muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
+            AudioManager audioManager = getSystemService(AudioManager.class);
+            audioManager.adjustVolume(input, AudioManager.FLAG_SHOW_UI);
+        }
+
+        @Override
+        public void toggleMute() {
             AudioManager audioManager = getSystemService(AudioManager.class);
             audioManager.adjustVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI);
         }
 
         @Override
-        public void pause() {
-            // TODO
+        public void destroy() {
+
+        }
+    }
+
+    // todo: add keyboard, media, scroll
+
+    public class OverlayOutputHandler implements OverlayOutput {
+        @Override
+        public PairingDialog createPairingDialog(PairingCallback callback, int pairingCode, byte[] fingerprint) {
+            return new PairingDialog(AccessibilityInputService.this, callback, pairingCode, fingerprint);
         }
 
         @Override
-        public void nextTrack() {
-
-            // TODO
+        public void displayNotification(String title, String description, int icon) {
+            notificationOverlay.displayNotification(title, description, icon);
         }
 
         @Override
-        public void prevTrack() {
-
-            // TODO
+        public void displayNotification(int title, int description, int icon) {
+            notificationOverlay.displayNotification(title, description, icon);
         }
 
         @Override
-        public void skipBackward() {
-
-            // TODO
+        public void displayNotification(String title, int description, int icon) {
+            notificationOverlay.displayNotification(title, description, icon);
         }
 
         @Override
-        public void skipForward() {
-
-            // TODO
+        public void displayNotification(int title, String description, int icon) {
+            notificationOverlay.displayNotification(title, description, icon);
         }
 
         @Override
-        public boolean softKeyboardEnabled() {
-            // TODO
-            return false;
-        }
-
-        @Override
-        public boolean softKeyboardVisible() {
-            // TODO
-            return false;
-        }
-
-        @Override
-        public void showSoftKeyboard() {
-            // TODO
+        public void destroy() {
 
         }
+    }
 
-        @Override
-        public void hideSoftKeyboard() {
-            // TODO
+    public class AccessibilityInputHandler extends Binder {
 
+        public void showPairingDialog() {
+
+            AtomicReference<PairingDialog> pd = new AtomicReference<>();
+
+            PairingCallback cb = new PairingCallback() {
+                @Override
+                public void cancel() {
+                    pd.get().destroy();
+                }
+
+                @Override
+                public void disablePairingForAWhile(TimeUnit timeUnit, long period) {
+                    pd.get().destroy();
+                }
+            };
+
+            pd.set(new PairingDialog(AccessibilityInputService.this, cb, 696969, "deez nuts".getBytes(StandardCharsets.UTF_8)));
+            pd.get().start();
         }
 
-        @Override
-        public void setSoftKeyboardEnabled(boolean enabled) {
-            // TODO
-
-        }
-
-        @Override
-        public void keyboardInput(String input) {
-            // TODO: this is probably wrong
-            AccessibilityNodeInfo node = getFocusedNode();
-            if (node == null) return;
-            node.setText(node.getText() + input);
-        }
-
-        @Override
-        public boolean cursorSupported() {
-            return cursorController != null;
-        }
-
-        @Override
-        public void showCursor() {
-            if (cursorController == null) return;
-            cursorController.showCursor();
-        }
-
-        @Override
-        public void hideCursor() {
-            if (cursorController == null) return;
-            cursorController.hideCursor();
-        }
-
-        @Override
-        public void cursorMove(int x, int y) {
-            if (cursorController == null) return;
-            cursorController.cursorMove(x, y);
-        }
-
-        @Override
-        public void cursorDown() {
-            if (cursorController == null) return;
-            cursorController.cursorDown();
-        }
-
-        @Override
-        public void cursorUp() {
-            if (cursorController == null) return;
-            cursorController.cursorUp();
-        }
-
-        @Override
-        public void cursorContext() {
-            // TODO
+        public void showTestNotification() {
+            notificationOverlay.displayNotification("Test notification", "this is a test", R.drawable.ic_launcher_foreground);
 
         }
 
-        @Override
-        public void scrollVertical(double trajectory, boolean glide) {
-            // TODO
-
+        public DirectionalPadInput getDirectionalPadInput() {
+            return directionalPadInput;
         }
 
-        @Override
-        public void scrollHorizontal(double trajectory, boolean glide) {
-            // TODO
+        public NavigationInput getNavigationInput() {
+            return navigationInput;
+        }
 
+        public CursorInput getCursorInput() {
+            return cursorInput;
+        }
+
+        public VolumeInput getVolumeInput() {
+            return volumeInput;
+        }
+
+        public OverlayOutput getOverlayOutput() {
+            return overlayOutput;
         }
 
         public AccessibilityInputService getService() {

@@ -32,9 +32,9 @@ import io.benwiegand.atvremote.receiver.auth.ssl.CorruptedKeystoreException;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeyUtil;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeystoreManager;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
-import io.benwiegand.atvremote.receiver.control.InputHandler;
+import io.benwiegand.atvremote.receiver.control.ControlScheme;
+import io.benwiegand.atvremote.receiver.control.ControlSourceErrors;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
-import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 
 public class TVRemoteServer extends Service {
     private static final String TAG = TVRemoteServer.class.getSimpleName();
@@ -45,7 +45,6 @@ public class TVRemoteServer extends Service {
     private final ServerBinder binder = new ServerBinder();
     private SSLServerSocketFactory serverSocketFactory = null;
     private PairingManager pairingManager = null;
-    private NotificationOverlay notificationOverlay = null;
 
     private final List<TVRemoteConnection> connections = new LinkedList<>();
 
@@ -54,7 +53,7 @@ public class TVRemoteServer extends Service {
 
     private final Object listenThreadLock = new Object();
     private Thread listenThread = null;
-    private InputHandler inputHandler = null;
+    private ControlScheme controlScheme;
     private SSLServerSocket serverSocket = null;
     private boolean shutdown = false;
 
@@ -69,8 +68,21 @@ public class TVRemoteServer extends Service {
                 .registerReceiver(accessibilityBinderReceiver, filter);
 
         nsdManager = this.getSystemService(NsdManager.class);
-        pairingManager = new PairingManager(this);
 
+        // todo: this should be set based on whatever control schemes are configured
+        ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
+                "TODO",
+                "TODO",
+                "TODO",
+                "TODO",
+                "TODO",
+                "TODO",
+                "TODO",
+                "TODO"
+        );
+        controlScheme = new ControlScheme(controlSourceErrors);
+
+        pairingManager = new PairingManager(this, controlScheme);
 
         startListening();
         requestAccessibilityBinder();
@@ -158,7 +170,7 @@ public class TVRemoteServer extends Service {
                 Log.d(TAG, "LocalPrincipal: " + newSocket.getSession().getLocalPrincipal());
 
                 synchronized (connections) {
-                    TVRemoteConnection connection = new TVRemoteConnection(pairingManager, newSocket, inputHandler, notificationOverlay);
+                    TVRemoteConnection connection = new TVRemoteConnection(pairingManager, newSocket, controlScheme);
                     connections.add(connection);
                 }
             }
@@ -188,21 +200,18 @@ public class TVRemoteServer extends Service {
             Bundle extras = intent.getExtras();
             assert extras != null; // this intent should always have an extra
 
-            IBinder binder = extras.getBinder(AccessibilityInputService.EXTRA_BINDER_INSTANCE);
+            AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) extras.getBinder(AccessibilityInputService.EXTRA_BINDER_INSTANCE);
             Log.i(TAG, "accessibility binder instance: " + binder);
             assert binder != null; // this extra should never be null
-            inputHandler = (InputHandler) binder;
 
-            AccessibilityInputService accessibilityContext = ((AccessibilityInputService.AccessibilityInputHandler) binder).getService();
-            pairingManager.setAccessibilityContext(accessibilityContext);
-            notificationOverlay = accessibilityContext.getNotificationOverlay();
+            // set accessibility control methods
+            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
+            controlScheme.setNavigationInput(binder.getNavigationInput());
+            controlScheme.setCursorInput(binder.getCursorInput());
+            controlScheme.setVolumeInput(binder.getVolumeInput());
 
-            synchronized (connections) {
-                for (TVRemoteConnection connection : connections) {
-                    connection.setInputHandler(inputHandler);
-                    connection.setNotificationOverlay(notificationOverlay);
-                }
-            }
+            // todo
+            controlScheme.setOverlayOutput(binder.getOverlayOutput());
         }
     }
 

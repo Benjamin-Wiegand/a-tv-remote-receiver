@@ -54,12 +54,14 @@ public class DebugActivity extends AppCompatActivity {
 
         findViewById(R.id.press_home_button).setOnClickListener(v -> {
             if (binder == null) return;
-            binder.navHome();
+            // todo fixme
+//            binder.navHome();
         });
 
         findViewById(R.id.show_notifs_button).setOnClickListener(v -> {
             if (binder == null) return;
-            binder.navNotifications();
+            // todo fixme
+//            binder.navNotifications();
         });
 
         findViewById(R.id.show_test_notif_button).setOnClickListener(v -> {
@@ -69,8 +71,9 @@ public class DebugActivity extends AppCompatActivity {
 
         findViewById(R.id.show_cursor_button).setOnClickListener(v -> {
             if (binder == null) return;
-            binder.showCursor();
-            binder.cursorMove(420, 420);
+            // todo fixme
+//            binder.showCursor();
+//            binder.cursorMove(420, 420);
         });
 
         findViewById(R.id.show_pairing_dialog_button).setOnClickListener(v -> {
