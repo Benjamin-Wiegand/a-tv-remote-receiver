@@ -34,7 +34,7 @@ dependencies {
     implementation libs.material
     implementation libs.activity
     implementation libs.bouncycastle
-    implementation(libs.androidx.leanback)
+    implementation libs.androidx.leanback
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
