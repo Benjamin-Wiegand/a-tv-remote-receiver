@@ -28,6 +28,7 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 
+import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.auth.ssl.CorruptedKeystoreException;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeyUtil;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeystoreManager;
@@ -70,15 +71,16 @@ public class TVRemoteServer extends Service {
         nsdManager = this.getSystemService(NsdManager.class);
 
         // todo: this should be set based on whatever control schemes are configured
+        String accessibilityServiceException = getString(R.string.control_source_not_loaded_accessibility);
         ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
-                "TODO",
-                "TODO",
-                "TODO",
-                "TODO",
-                "TODO",
-                "TODO",
-                "TODO",
-                "TODO"
+                accessibilityServiceException,
+                accessibilityServiceException,
+                "not implemented",
+                "not implemented",
+                accessibilityServiceException,
+                "not implemented",
+                accessibilityServiceException,
+                accessibilityServiceException
         );
         controlScheme = new ControlScheme(controlSourceErrors);
 
