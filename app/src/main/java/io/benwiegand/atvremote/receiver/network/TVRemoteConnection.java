@@ -107,7 +107,7 @@ public class TVRemoteConnection implements Closeable {
             Log.i(TAG, "remote connected: " + socket.getRemoteSocketAddress());
 
             controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                    o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), androidx.leanback.R.drawable.lb_ic_sad_cloud)); // todo
+                    o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), R.drawable.phone));
 
             connectionLoop(writer, reader);
 
@@ -161,14 +161,14 @@ public class TVRemoteConnection implements Closeable {
                 Log.w(TAG, "pairing code was wrong");
                 writer.sendLine(OP_UNAUTHORIZED);
                 controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                        o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, androidx.leanback.R.drawable.lb_ic_sad_cloud)); //todo
+                        o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, R.drawable.denied));
                 throw new RuntimeException("pairing code wrong");
             }
 
             Log.i(TAG, "pairing complete");
             writer.sendLine(token);
             controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                    o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, androidx.leanback.R.drawable.lb_ic_sad_cloud)); // todo
+                    o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, R.drawable.accepted));
         } finally {
             pairingManager.cancelPairing(cancelCallback);
         }

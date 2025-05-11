@@ -429,7 +429,7 @@ public class AccessibilityInputService extends AccessibilityService {
         }
 
         public void showTestNotification() {
-            notificationOverlay.displayNotification("Test notification", "this is a test", R.drawable.ic_launcher_foreground);
+            notificationOverlay.displayNotification("Test notification", "this is a test", R.drawable.accepted);
 
         }
 
