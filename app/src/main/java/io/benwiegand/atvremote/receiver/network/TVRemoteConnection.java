@@ -3,7 +3,12 @@ package io.benwiegand.atvremote.receiver.network;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.*;
 
+import android.content.Context;
 import android.util.Log;
+
+import androidx.annotation.StringRes;
+
+import com.google.gson.Gson;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -17,9 +22,12 @@ import io.benwiegand.atvremote.receiver.control.ControlScheme;
 import io.benwiegand.atvremote.receiver.control.ControlNotInitializedException;
 import io.benwiegand.atvremote.receiver.protocol.PairingData;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
+import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
+import io.benwiegand.atvremote.receiver.protocol.json.ErrorDetails;
 
 public class TVRemoteConnection implements Closeable {
     private static final String TAG = TVRemoteConnection.class.getSimpleName();
+    private static final Gson gson = new Gson();
 
     private static final int SOCKET_AUTH_TIMEOUT = 3000;
     private static final int PAIRING_TIME_LIMIT = 360000; // 5 mins //todo
@@ -30,11 +38,13 @@ public class TVRemoteConnection implements Closeable {
     private PairingData pairingData = null; //todo: update pairing data with pairing manager
     private boolean dead = false;
 
+    private final Context context;
     private final PairingManager pairingManager;
     private final SSLSocket socket;
     private final ControlScheme controlScheme;
 
-    public TVRemoteConnection(PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme) {
+    public TVRemoteConnection(Context context, PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme) {
+        this.context = context;
         this.pairingManager = pairingManager;
         this.socket = socket;
         this.controlScheme = controlScheme;
@@ -168,6 +178,15 @@ public class TVRemoteConnection implements Closeable {
         return new IOException("didn't receive anything within KEEPALIVE_TIMEOUT (" + KEEPALIVE_TIMEOUT + ")");
     }
 
+    private void protocolAssert(boolean condition, @StringRes int stringRes, String message) throws RemoteProtocolException {
+        if (condition) return;
+        throw new RemoteProtocolException(stringRes, message);
+    }
+
+    private void sendError(TCPWriter writer, ErrorDetails e) throws IOException {
+        writer.sendLine(OP_ERR + " " + gson.toJson(e));
+    }
+
     private void connectionLoop(TCPWriter writer, TCPReader reader) throws IOException, InterruptedException {
         while (!dead) {
 
@@ -177,7 +196,7 @@ public class TVRemoteConnection implements Closeable {
 
             // handle keepalive
             if (line == null) throw generateKeepaliveTimeoutException();
-            String[] opLine = line.split(" ");
+            String[] opLine = line.split(" ", 2);
 
             try {
                 switch (opLine[0]) {
@@ -208,19 +227,18 @@ public class TVRemoteConnection implements Closeable {
                     case OP_CURSOR_SHOW -> controlScheme.getCursorInput().showCursor();
                     case OP_CURSOR_HIDE -> controlScheme.getCursorInput().hideCursor();
                     case OP_CURSOR_MOVE -> {
-                        if (opLine.length != 3) {
-                            writer.sendLine(OP_ERR);
-                            continue;
-                        }
+                        protocolAssert(opLine.length == 2, R.string.protocol_error_mouse_move_bad_coordinates, "no mouse coordinates provided");
+                        String[] args = opLine[1].split(" ", 2);
+                        protocolAssert(args.length == 2, R.string.protocol_error_mouse_move_bad_coordinates, "not enough mouse coordinates were provided");
+
                         int x, y;
                         try {
-                            x = Integer.parseInt(opLine[1]);
-                            y = Integer.parseInt(opLine[2]);
+                            x = Integer.parseInt(args[0]);
+                            y = Integer.parseInt(args[1]);
                         } catch (NumberFormatException e) {
-                            Log.e(TAG, "malformed mouse coordinate", e);
-                            writer.sendLine(OP_ERR);
-                            continue;
+                            throw new RemoteProtocolException(R.string.protocol_error_mouse_move_bad_coordinates, "one or more mouse coordinates were not integers", e);
                         }
+
                         controlScheme.getCursorInput().cursorMove(x, y);
                     }
                     case OP_CURSOR_DOWN -> controlScheme.getCursorInput().cursorDown();
@@ -237,9 +255,10 @@ public class TVRemoteConnection implements Closeable {
                 // no exceptions happened, assume success
                 writer.sendLine(OP_CONFIRM);
 
-            } catch (ControlNotInitializedException e) {
-                // todo: error messages still need implementation
-                writer.sendLine(OP_ERR);
+            } catch (RemoteProtocolException e) {
+                sendError(writer, ErrorDetails.fromProtocolException(context, e));
+            } catch (RuntimeException e) {
+                sendError(writer, ErrorDetails.fromException(context, e));
             }
         }
 

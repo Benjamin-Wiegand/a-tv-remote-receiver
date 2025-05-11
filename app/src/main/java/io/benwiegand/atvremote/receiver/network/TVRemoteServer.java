@@ -170,7 +170,7 @@ public class TVRemoteServer extends Service {
                 Log.d(TAG, "LocalPrincipal: " + newSocket.getSession().getLocalPrincipal());
 
                 synchronized (connections) {
-                    TVRemoteConnection connection = new TVRemoteConnection(pairingManager, newSocket, controlScheme);
+                    TVRemoteConnection connection = new TVRemoteConnection(this, pairingManager, newSocket, controlScheme);
                     connections.add(connection);
                 }
             }
@@ -210,7 +210,6 @@ public class TVRemoteServer extends Service {
             controlScheme.setCursorInput(binder.getCursorInput());
             controlScheme.setVolumeInput(binder.getVolumeInput());
 
-            // todo
             controlScheme.setOverlayOutput(binder.getOverlayOutput());
         }
     }

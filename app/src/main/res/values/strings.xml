@@ -20,4 +20,8 @@
     <string name="notification_pairing_failed_description_invalid_code">invalid pairing code</string>
 
     <string name="notification_remote_connected_title">remote connected</string>
+
+    <!-- protocol -->
+    <string name="protocol_error_mouse_move_bad_coordinates">mouse coordinates must be exactly two integers</string>
+    <string name="protocol_error_unexpected">encountered unexpected error: {0} - {1}</string>
 </resources>
