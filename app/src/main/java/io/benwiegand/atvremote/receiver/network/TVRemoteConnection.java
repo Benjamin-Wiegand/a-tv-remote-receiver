@@ -129,7 +129,17 @@ public class TVRemoteConnection implements Closeable {
 
     private void doPairing(TCPWriter writer, TCPReader reader) throws IOException, InterruptedException {
         Log.v(TAG, "starting pairing");
-        Runnable cancelCallback = () -> tryClose(socket);
+        Runnable cancelCallback = () -> {
+            if (socket.isClosed()) return;
+            try {
+                writer.sendLine(OP_UNAUTHORIZED);
+            } catch (Throwable t) {
+                Log.e(TAG, "failed to send rejection", t);
+            }
+            controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                    o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_cancelled, R.drawable.denied));
+            tryClose(socket);
+        };
 
         // try to start pairing
         try {
@@ -159,7 +169,11 @@ public class TVRemoteConnection implements Closeable {
 
             if (token == null) {
                 Log.w(TAG, "pairing code was wrong");
-                writer.sendLine(OP_UNAUTHORIZED);
+                try {
+                    writer.sendLine(OP_UNAUTHORIZED);
+                } catch (Throwable t) {
+                    Log.e(TAG, "failed to send rejection", t);
+                }
                 controlScheme.getOverlayOutputOptional().ifPresent(o ->
                         o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, R.drawable.denied));
                 throw new RuntimeException("pairing code wrong");

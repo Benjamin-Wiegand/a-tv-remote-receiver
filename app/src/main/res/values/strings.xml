@@ -18,6 +18,7 @@
 
     <string name="notification_pairing_failed_title">pairing failed</string>
     <string name="notification_pairing_failed_description_invalid_code">invalid pairing code</string>
+    <string name="notification_pairing_failed_description_cancelled">pairing was cancelled</string>
 
     <string name="notification_remote_connected_title">remote connected</string>
 

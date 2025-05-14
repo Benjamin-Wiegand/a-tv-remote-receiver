@@ -128,7 +128,6 @@ public class PairingManager implements PairingCallback {
             pairingSession.cancelCallbacks().remove(cancelCallback);
             cancelPairingLocked();
 
-            boolean success = false;
             try {
                 if (pairingSession.pairingCode() != pairingCode) {
                     Log.v(TAG, "wrong code provided");
@@ -140,17 +139,14 @@ public class PairingManager implements PairingCallback {
                 PairingData data = new PairingData(token, null, null, -1, -1);
                 if (!addNewDevice(data)) return null;
 
-                success = true;
                 return token;
-            } finally {
-                if (!success) {
-                    try {
-                        cancelCallback.run();
-                    } catch (Throwable t) {
-                        Log.wtf(TAG, "exception thrown in cancel callback", t);
-                    }
+            } catch (RuntimeException e) {
+                try {
+                    cancelCallback.run();
+                } catch (Throwable t) {
+                    Log.wtf(TAG, "exception thrown in cancel callback", t);
                 }
-
+                throw e;
             }
         }
     }
