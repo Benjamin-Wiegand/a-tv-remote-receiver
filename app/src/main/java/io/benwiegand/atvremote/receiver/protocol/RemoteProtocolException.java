@@ -1,5 +1,7 @@
 package io.benwiegand.atvremote.receiver.protocol;
 
+import android.content.Context;
+
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
@@ -30,4 +32,7 @@ public class RemoteProtocolException extends Exception {
         return stringResMessage;
     }
 
+    public String getLocalizedMessage(Context context) {
+        return stringResMessage != null ? context.getString(stringResMessage) : getLocalizedMessage();
+    }
 }

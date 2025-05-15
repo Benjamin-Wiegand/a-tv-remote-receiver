@@ -145,7 +145,7 @@ public class TVRemoteConnection implements Closeable {
         try {
             pairingManager.startPairing(cancelCallback);
         } catch (ControlNotInitializedException e) {
-            writer.sendLine(OP_UNREADY);
+            sendError(writer, ErrorDetails.fromProtocolException(context, e));
             throw new RuntimeException("cannot display pairing overlay", e);
         }
 
