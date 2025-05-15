@@ -6,7 +6,6 @@ import android.graphics.PixelFormat;
 import android.view.WindowManager;
 import android.widget.TextView;
 
-import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import io.benwiegand.atvremote.receiver.R;
@@ -42,9 +41,13 @@ public class PairingDialog extends MakeshiftActivity {
         TextView fingerprintElevatedText = root.findViewById(R.id.certificate_fingerprint_elevated_text);
         fingerprintElevatedText.setText("70 D0"); // todo
 
-        // todo: handle starting with a zero
+        // pad pairing code with leading 0s
+        StringBuilder pairingCodeString = new StringBuilder(String.valueOf(pairingCode));
+        while (pairingCodeString.length() < 6)
+            pairingCodeString.insert(0, '0');
+
         TextView pairingCodeText = root.findViewById(R.id.pairing_code_text);
-        pairingCodeText.setText(String.format(Locale.ROOT, "%d", pairingCode));
+        pairingCodeText.setText(pairingCodeString);
     }
 
     private void bindButtons() {
