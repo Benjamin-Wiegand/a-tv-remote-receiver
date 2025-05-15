@@ -14,8 +14,6 @@ public class ProtocolConstants {
 
     // responses
     public static final String OP_CONFIRM = "OK";
-    public static final String OP_READY = "RDY";
-    public static final String OP_UNREADY = "WAIT";
     public static final String OP_ERR = "ERR";
     public static final String OP_UNAUTHORIZED = "BAD_AUTH";
     public static final String OP_UNSUPPORTED = "HUH?";

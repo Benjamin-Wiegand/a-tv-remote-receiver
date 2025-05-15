@@ -153,7 +153,6 @@ public class TVRemoteConnection implements Closeable {
             String line;
             do {
                 writer.sendLine(OP_CONFIRM);
-                writer.sendLine(OP_READY);
                 line = reader.nextLine(KEEPALIVE_TIMEOUT);
                 if (line == null) throw generateKeepaliveTimeoutException();
             } while (line.equals(OP_PING));
@@ -205,7 +204,6 @@ public class TVRemoteConnection implements Closeable {
         while (!dead) {
 
             // wait for and execute next operation
-            writer.sendLine(OP_READY);
             String line = reader.nextLine(KEEPALIVE_TIMEOUT);
 
             // handle keepalive
