@@ -257,7 +257,7 @@ public class AccessibilityInputService extends AccessibilityService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
             } else {
-                fakeDpad(View.FOCUS_BACKWARD);
+                fakeDpad(View.FOCUS_LEFT);
             }
         }
 
@@ -266,7 +266,7 @@ public class AccessibilityInputService extends AccessibilityService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
             } else {
-                fakeDpad(View.FOCUS_FORWARD);
+                fakeDpad(View.FOCUS_RIGHT);
             }
         }
 
