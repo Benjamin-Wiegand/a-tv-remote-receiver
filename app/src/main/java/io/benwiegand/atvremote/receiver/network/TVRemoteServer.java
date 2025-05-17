@@ -101,7 +101,7 @@ public class TVRemoteServer extends Service {
             tryClose(connection);
         }
 
-        tryClose(serverSocket);
+        if (serverSocket != null) tryClose(serverSocket);
     }
 
     @Nullable
