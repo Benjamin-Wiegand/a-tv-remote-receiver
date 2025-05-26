@@ -1,20 +1,17 @@
 package io.benwiegand.atvremote.receiver.protocol;
 
-import android.content.Context;
-
-import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-public class RemoteProtocolException extends Exception {
-    @StringRes private Integer stringResMessage = null;
+import io.benwiegand.atvremote.receiver.ui.ErrorMessageException;
+
+public class RemoteProtocolException extends ErrorMessageException {
 
     public RemoteProtocolException(String message) {
         super(message);
     }
 
     public RemoteProtocolException(@StringRes int stringResMessage, String message) {
-        super(message);
-        this.stringResMessage = stringResMessage;
+        super(stringResMessage, message);
     }
 
     public RemoteProtocolException(String message, Throwable cause) {
@@ -22,17 +19,6 @@ public class RemoteProtocolException extends Exception {
     }
 
     public RemoteProtocolException(@StringRes int stringResMessage, String message, Throwable cause) {
-        super(message, cause);
-        this.stringResMessage = stringResMessage;
-    }
-
-    @Nullable
-    @StringRes
-    public Integer getStringResMessage() {
-        return stringResMessage;
-    }
-
-    public String getLocalizedMessage(Context context) {
-        return stringResMessage != null ? context.getString(stringResMessage) : getLocalizedMessage();
+        super(stringResMessage, message, cause);
     }
 }

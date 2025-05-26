@@ -13,13 +13,14 @@ import com.google.gson.Gson;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
-import java.net.SocketException;
 
 import javax.net.ssl.SSLSocket;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.ControlScheme;
 import io.benwiegand.atvremote.receiver.control.ControlNotInitializedException;
+import io.benwiegand.atvremote.receiver.protocol.MalformedEventException;
+import io.benwiegand.atvremote.receiver.protocol.OperationDefinition;
 import io.benwiegand.atvremote.receiver.protocol.PairingData;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
@@ -34,22 +35,26 @@ public class TVRemoteConnection implements Closeable {
     private static final long KEEPALIVE_INTERVAL = 5000;
     private static final long KEEPALIVE_TIMEOUT = KEEPALIVE_INTERVAL * 2;
 
-    private final Thread thread = new Thread(this::run);
-    private PairingData pairingData = null; //todo: update pairing data with pairing manager
-    private boolean dead = false;
-
     private final Context context;
-    private final PairingManager pairingManager;
+
     private final SSLSocket socket;
+    private TCPReader reader = null;
+    private TCPWriter writer = null;
+    private EventJuggler eventJuggler = null;
+
+    private final PairingManager pairingManager;
+    private Runnable cancelPairingCallback = null;
+    private PairingData pairingData = null; //todo: update pairing data with pairing manager
     private final ControlScheme controlScheme;
+
+    private boolean dead = false;
 
     public TVRemoteConnection(Context context, PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme) {
         this.context = context;
         this.pairingManager = pairingManager;
         this.socket = socket;
         this.controlScheme = controlScheme;
-
-        thread.start();
+        init();
     }
 
     public InetAddress getRemoteAddress() {
@@ -60,19 +65,17 @@ public class TVRemoteConnection implements Closeable {
         return dead;
     }
 
-    private void run() {
-        TCPReader reader = null;
-        TCPWriter writer = null;
+    private void init() {
         try {
             Log.d(TAG, "Connection from " + socket.getRemoteSocketAddress());
 
             // init socket
-            socket.setTcpNoDelay(true);
             socket.setTrafficClass(0x10 /* lowdelay */);
             socket.startHandshake();
 
             writer = TCPWriter.createFromStream(socket.getOutputStream(), CHARSET);
             reader = TCPReader.createFromStream(socket.getInputStream(), CHARSET);
+            eventJuggler = new EventJuggler(context, reader, writer, this::onSocketDeath, KEEPALIVE_INTERVAL, KEEPALIVE_TIMEOUT);
 
             String version = reader.nextLine(SOCKET_AUTH_TIMEOUT);
 
@@ -84,111 +87,70 @@ public class TVRemoteConnection implements Closeable {
             writer.sendLine(OP_CONFIRM);
 
             String op = reader.nextLine(SOCKET_AUTH_TIMEOUT);
-
-            if (op.equals(INIT_OP_PAIR)) {
-                doPairing(writer, reader);
-                return; // force a reconnection
-            } else if (!op.equals(INIT_OP_CONNECT)) {
-                throw new RuntimeException("Bad initial operation");
+            switch (op) {
+                case INIT_OP_PAIR -> initPairing();
+                case INIT_OP_CONNECT -> initRemote();
+                default -> throw new RuntimeException("Bad initial operation");
             }
 
-            String auth = reader.nextLine(SOCKET_AUTH_TIMEOUT);
-            pairingData = pairingManager.fetchPairingData(auth);
-            if (pairingData == null) {
-                Log.w(TAG, "client sent invalid authorization token");
-                writer.sendLine(OP_UNAUTHORIZED);
-                return;
-            }
-            assert auth.equals(pairingData.token());    // the token should match
-
-            writer.sendLine(OP_CONFIRM);
-
-            // connection is trusted at this point
-            Log.i(TAG, "remote connected: " + socket.getRemoteSocketAddress());
-
-            controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                    o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), R.drawable.phone));
-
-            connectionLoop(writer, reader);
-
-        } catch (SocketException e) {
-            Log.e(TAG, "socket died", e);
-        } catch (IOException e) {
-            Log.e(TAG, "IOException in connection", e);
-        } catch (RuntimeException e) {
-            Log.e(TAG, "unexpected error in connection", e);
         } catch (InterruptedException e) {
-            Log.d(TAG, "interrupted", e);
-        } finally {
-            // todo: cleanup callback
+            Log.e(TAG, "interrupted");
             tryClose(this);
-            if (reader != null) tryClose(reader);
-            if (writer != null) tryClose(writer);
+        } catch (Throwable t) {
+            Log.e(TAG, "error during connection init", t);
+            tryClose(this);
         }
     }
 
-    private void doPairing(TCPWriter writer, TCPReader reader) throws IOException, InterruptedException {
+    private void onSocketDeath(Throwable throwable) {
+        tryClose(this);
+
+        controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                o.displayNotification(R.string.notification_remote_disconnected_title, "", R.drawable.denied));
+    }
+
+    private void initPairing() throws IOException, InterruptedException {
         Log.v(TAG, "starting pairing");
-        Runnable cancelCallback = () -> {
+
+        cancelPairingCallback = () -> {
             if (socket.isClosed()) return;
-            try {
-                writer.sendLine(OP_UNAUTHORIZED);
-            } catch (Throwable t) {
-                Log.e(TAG, "failed to send rejection", t);
-            }
             controlScheme.getOverlayOutputOptional().ifPresent(o ->
                     o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_cancelled, R.drawable.denied));
             tryClose(socket);
         };
 
-        // try to start pairing
         try {
-            pairingManager.startPairing(cancelCallback);
+            pairingManager.startPairing(cancelPairingCallback);
         } catch (ControlNotInitializedException e) {
-            sendError(writer, ErrorDetails.fromProtocolException(context, e));
+            sendError(writer, ErrorDetails.fromException(context, e));
             throw new RuntimeException("cannot display pairing overlay", e);
         }
 
-        try {
-            String line;
-            do {
-                writer.sendLine(OP_CONFIRM);
-                line = reader.nextLine(KEEPALIVE_TIMEOUT);
-                if (line == null) throw generateKeepaliveTimeoutException();
-            } while (line.equals(OP_PING));
+        writer.sendLine(OP_CONFIRM);
 
-            int code;
-            try {
-                code = Integer.parseInt(line);
-            } catch (NumberFormatException e) {
-                throw new RuntimeException("received pairing code was not a number", e);
-            }
+        eventJuggler.start(getPairingOperations());
 
-            String token = pairingManager.pair(code, cancelCallback);
-
-            if (token == null) {
-                Log.w(TAG, "pairing code was wrong");
-                try {
-                    writer.sendLine(OP_UNAUTHORIZED);
-                } catch (Throwable t) {
-                    Log.e(TAG, "failed to send rejection", t);
-                }
-                controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                        o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, R.drawable.denied));
-                throw new RuntimeException("pairing code wrong");
-            }
-
-            Log.i(TAG, "pairing complete");
-            writer.sendLine(token);
-            controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                    o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, R.drawable.accepted));
-        } finally {
-            pairingManager.cancelPairing(cancelCallback);
-        }
     }
 
-    private IOException generateKeepaliveTimeoutException() {
-        return new IOException("didn't receive anything within KEEPALIVE_TIMEOUT (" + KEEPALIVE_TIMEOUT + ")");
+    private void initRemote() throws IOException, InterruptedException {
+        String auth = reader.nextLine(SOCKET_AUTH_TIMEOUT);
+        pairingData = pairingManager.fetchPairingData(auth);
+        if (pairingData == null) {
+            Log.w(TAG, "client sent invalid authorization token");
+            writer.sendLine(OP_UNAUTHORIZED);
+            return;
+        }
+        assert auth.equals(pairingData.token());    // the token should match
+
+        writer.sendLine(OP_CONFIRM);
+
+        // connection is trusted at this point
+        Log.i(TAG, "remote connected: " + socket.getRemoteSocketAddress());
+
+        controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), R.drawable.phone));
+
+        eventJuggler.start(getRemoteOperations());
     }
 
     private void protocolAssert(boolean condition, @StringRes int stringRes, String message) throws RemoteProtocolException {
@@ -200,88 +162,93 @@ public class TVRemoteConnection implements Closeable {
         writer.sendLine(OP_ERR + " " + gson.toJson(e));
     }
 
-    private void connectionLoop(TCPWriter writer, TCPReader reader) throws IOException, InterruptedException {
-        while (!dead) {
-
-            // wait for and execute next operation
-            String line = reader.nextLine(KEEPALIVE_TIMEOUT);
-
-            // handle keepalive
-            if (line == null) throw generateKeepaliveTimeoutException();
-            String[] opLine = line.split(" ", 2);
-
-            try {
-                switch (opLine[0]) {
-                    case OP_DPAD_UP -> controlScheme.getDirectionalPadInput().dpadUp();
-                    case OP_DPAD_DOWN -> controlScheme.getDirectionalPadInput().dpadDown();
-                    case OP_DPAD_LEFT -> controlScheme.getDirectionalPadInput().dpadLeft();
-                    case OP_DPAD_RIGHT -> controlScheme.getDirectionalPadInput().dpadRight();
-                    case OP_DPAD_SELECT -> controlScheme.getDirectionalPadInput().dpadSelect();
-                    case OP_DPAD_LONG_PRESS -> controlScheme.getDirectionalPadInput().dpadLongPress();
-
-                    case OP_NAV_HOME -> controlScheme.getNavigationInput().navHome();
-                    case OP_NAV_BACK -> controlScheme.getNavigationInput().navBack();
-                    case OP_NAV_RECENT -> controlScheme.getNavigationInput().navRecent();
-                    case OP_NAV_APPS -> controlScheme.getNavigationInput().navApps();
-                    case OP_NAV_NOTIFICATIONS -> controlScheme.getNavigationInput().navNotifications();
-                    case OP_NAV_QUICK_SETTINGS -> controlScheme.getNavigationInput().navQuickSettings();
-
-                    case OP_VOLUME_UP -> controlScheme.getVolumeInput().volumeUp();
-                    case OP_VOLUME_DOWN -> controlScheme.getVolumeInput().volumeDown();
-                    case OP_MUTE -> controlScheme.getVolumeInput().toggleMute();
-
-                    case OP_PAUSE -> controlScheme.getMediaInput().pause();
-                    case OP_NEXT_TRACK -> controlScheme.getMediaInput().nextTrack();
-                    case OP_PREV_TRACK -> controlScheme.getMediaInput().prevTrack();
-                    case OP_SKIP_BACKWARD -> controlScheme.getMediaInput().skipBackward();
-                    case OP_SKIP_FORWARD -> controlScheme.getMediaInput().skipForward();
-
-                    case OP_CURSOR_SHOW -> controlScheme.getCursorInput().showCursor();
-                    case OP_CURSOR_HIDE -> controlScheme.getCursorInput().hideCursor();
-                    case OP_CURSOR_MOVE -> {
-                        protocolAssert(opLine.length == 2, R.string.protocol_error_mouse_move_bad_coordinates, "no mouse coordinates provided");
-                        String[] args = opLine[1].split(" ", 2);
-                        protocolAssert(args.length == 2, R.string.protocol_error_mouse_move_bad_coordinates, "not enough mouse coordinates were provided");
-
-                        int x, y;
-                        try {
-                            x = Integer.parseInt(args[0]);
-                            y = Integer.parseInt(args[1]);
-                        } catch (NumberFormatException e) {
-                            throw new RemoteProtocolException(R.string.protocol_error_mouse_move_bad_coordinates, "one or more mouse coordinates were not integers", e);
-                        }
-
-                        controlScheme.getCursorInput().cursorMove(x, y);
-                    }
-                    case OP_CURSOR_DOWN -> controlScheme.getCursorInput().cursorDown();
-                    case OP_CURSOR_UP -> controlScheme.getCursorInput().cursorUp();
-
-                    case OP_PING -> {
-                    }
-                    default -> {
-                        writer.sendLine(OP_UNSUPPORTED);
-                        continue;
-                    }
-                }
-
-                // no exceptions happened, assume success
-                writer.sendLine(OP_CONFIRM);
-
-            } catch (RemoteProtocolException e) {
-                sendError(writer, ErrorDetails.fromProtocolException(context, e));
-            } catch (RuntimeException e) {
-                sendError(writer, ErrorDetails.fromException(context, e));
-            }
-        }
-
-    }
-
     @Override
     public void close() {
         Log.d(TAG, "close()");
         dead = true;
+
+        // todo: cleanup callback
         tryClose(socket);
-        thread.interrupt();
+        if (reader != null) tryClose(reader);
+        if (writer != null) tryClose(writer);
+        if (cancelPairingCallback != null) pairingManager.cancelPairing(cancelPairingCallback);
+    }
+
+    private OperationDefinition[] getPairingOperations() {
+        return new OperationDefinition[] {
+                new OperationDefinition(OP_TRY_PAIRING_CODE, extra -> {
+                    int code;
+                    try {
+                        code = Integer.parseInt(extra);
+                    } catch (NumberFormatException e) {
+                        throw new MalformedEventException("received pairing code was not a number", e);
+                    }
+
+                    String token = pairingManager.pair(code, cancelPairingCallback);
+
+                    if (token == null) {
+                        Log.w(TAG, "pairing code was wrong");
+                        controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                                o.displayNotification(R.string.notification_pairing_failed_title, R.string.notification_pairing_failed_description_invalid_code, R.drawable.denied));
+                        throw new RemoteProtocolException(R.string.protocol_error_pairing_code_invalid, "pairing code wrong");
+                    }
+
+                    Log.i(TAG, "pairing complete");
+                    controlScheme.getOverlayOutputOptional().ifPresent(o ->
+                            o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, R.drawable.accepted));
+                    return token;
+                }),
+                new OperationDefinition(OP_PING, () -> {}),
+        };
+    }
+
+    private OperationDefinition[] getRemoteOperations() {
+        return new OperationDefinition[] {
+                new OperationDefinition(OP_DPAD_UP, () -> controlScheme.getDirectionalPadInput().dpadUp()),
+                new OperationDefinition(OP_DPAD_DOWN, () -> controlScheme.getDirectionalPadInput().dpadDown()),
+                new OperationDefinition(OP_DPAD_LEFT, () -> controlScheme.getDirectionalPadInput().dpadLeft()),
+                new OperationDefinition(OP_DPAD_RIGHT, () -> controlScheme.getDirectionalPadInput().dpadRight()),
+                new OperationDefinition(OP_DPAD_SELECT, () -> controlScheme.getDirectionalPadInput().dpadSelect()),
+                new OperationDefinition(OP_DPAD_LONG_PRESS, () -> controlScheme.getDirectionalPadInput().dpadLongPress()),
+
+                new OperationDefinition(OP_NAV_HOME, () -> controlScheme.getNavigationInput().navHome()),
+                new OperationDefinition(OP_NAV_BACK, () -> controlScheme.getNavigationInput().navBack()),
+                new OperationDefinition(OP_NAV_RECENT, () -> controlScheme.getNavigationInput().navRecent()),
+                new OperationDefinition(OP_NAV_APPS, () -> controlScheme.getNavigationInput().navApps()),
+                new OperationDefinition(OP_NAV_NOTIFICATIONS, () -> controlScheme.getNavigationInput().navNotifications()),
+                new OperationDefinition(OP_NAV_QUICK_SETTINGS, () -> controlScheme.getNavigationInput().navQuickSettings()),
+
+                new OperationDefinition(OP_VOLUME_UP, () -> controlScheme.getVolumeInput().volumeUp()),
+                new OperationDefinition(OP_VOLUME_DOWN, () -> controlScheme.getVolumeInput().volumeDown()),
+                new OperationDefinition(OP_MUTE, () -> controlScheme.getVolumeInput().toggleMute()),
+
+                new OperationDefinition(OP_PAUSE, () -> controlScheme.getMediaInput().pause()),
+                new OperationDefinition(OP_NEXT_TRACK, () -> controlScheme.getMediaInput().nextTrack()),
+                new OperationDefinition(OP_PREV_TRACK, () -> controlScheme.getMediaInput().prevTrack()),
+                new OperationDefinition(OP_SKIP_BACKWARD, () -> controlScheme.getMediaInput().skipBackward()),
+                new OperationDefinition(OP_SKIP_FORWARD, () -> controlScheme.getMediaInput().skipForward()),
+
+                new OperationDefinition(OP_CURSOR_SHOW, () -> controlScheme.getCursorInput().showCursor()),
+                new OperationDefinition(OP_CURSOR_HIDE, () -> controlScheme.getCursorInput().hideCursor()),
+                new OperationDefinition(OP_CURSOR_MOVE, extra -> {
+                    protocolAssert(extra != null, R.string.protocol_error_mouse_move_bad_coordinates, "no mouse coordinates provided");
+                    int iSep = extra.indexOf(' ');
+                    protocolAssert(iSep > 0, R.string.protocol_error_mouse_move_bad_coordinates, "not enough mouse coordinates were provided");
+
+                    int x, y;
+                    try {
+                        x = Integer.parseInt(extra.substring(0, iSep));
+                        y = Integer.parseInt(extra.substring(iSep + 1));
+                    } catch (NumberFormatException e) {
+                        throw new RemoteProtocolException(R.string.protocol_error_mouse_move_bad_coordinates, "one or more mouse coordinates were not integers", e);
+                    }
+
+                    controlScheme.getCursorInput().cursorMove(x, y);
+                }),
+                new OperationDefinition(OP_CURSOR_DOWN, () -> controlScheme.getCursorInput().cursorDown()),
+                new OperationDefinition(OP_CURSOR_UP, () -> controlScheme.getCursorInput().cursorUp()),
+                new OperationDefinition(OP_PING, () -> {}),
+        };
     }
 
 }

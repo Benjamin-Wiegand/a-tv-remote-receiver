@@ -20,13 +20,6 @@ public class TCPWriter implements Closeable {
         writer.flush();
     }
 
-    public void sendLines(String... lines) throws IOException {
-        for (String line : lines)
-            writer.write(line + NEWLINE);
-
-        writer.flush();
-    }
-
     @Override
     public void close() throws IOException {
         writer.close();

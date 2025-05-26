@@ -21,10 +21,13 @@
     <string name="notification_pairing_failed_description_cancelled">pairing was cancelled</string>
 
     <string name="notification_remote_connected_title">remote connected</string>
+    <string name="notification_remote_disconnected_title">remote disconnected</string>
 
     <!-- protocol -->
     <string name="protocol_error_mouse_move_bad_coordinates">mouse coordinates must be exactly two integers</string>
     <string name="protocol_error_unexpected">encountered unexpected error: {0} - {1}</string>
+    <string name="protocol_error_event_timeout">timed out</string>
+    <string name="protocol_error_pairing_code_invalid">pairing code rejected</string>
 
     <!-- control sources -->
     <string name="control_source_not_loaded_accessibility">Please enable the \"A TV Remote Inputs\" accessibility service in your TV settings.\n\nIt is used to:\n - display the pairing dialog while the app isn\'t open\n - simulate button presses so you can control your TV\n\nUsually it\'s under: Settings > Accessibility\nSometimes it\'s under: Settings > Device Preferences > Accessibility\nOtherwise you may have to look it up for your specific TV.</string>
