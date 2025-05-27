@@ -169,8 +169,13 @@ public class TVRemoteConnection implements Closeable {
 
         // todo: cleanup callback
         tryClose(socket);
-        if (reader != null) tryClose(reader);
-        if (writer != null) tryClose(writer);
+
+        if (eventJuggler != null && !eventJuggler.isDead()) {
+            eventJuggler.close();
+        } else if (eventJuggler == null) {
+            if (reader != null) tryClose(reader);
+            if (writer != null) tryClose(writer);
+        }
         if (cancelPairingCallback != null) pairingManager.cancelPairing(cancelPairingCallback);
     }
 
