@@ -197,7 +197,7 @@ public class TVRemoteConnection implements Closeable {
                     controlScheme.getOverlayOutputOptional().ifPresent(o ->
                             o.displayNotification(R.string.notification_pairing_complete_title, R.string.notification_pairing_complete_description, R.drawable.accepted));
                     return token;
-                }),
+                }, true),
                 new OperationDefinition(OP_PING, () -> {}),
         };
     }

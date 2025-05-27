@@ -9,6 +9,7 @@ public record QueuedEvent(String event, SecAdapter<EventResult> adapter, long en
         this(event, adapter, SystemClock.elapsedRealtime());
     }
 
+    @Override
     public Type type() {
         return Type.EVENT;
     }
