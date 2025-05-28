@@ -41,6 +41,8 @@ import io.benwiegand.atvremote.receiver.util.ErrorUtil;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.*;
 
+import javax.net.ssl.SSLSocket;
+
 /**
  * it juggles the events between the devices
  */
@@ -53,6 +55,7 @@ public class EventJuggler implements Closeable {
     private static final Gson gson = new Gson();
 
     private final ThreadPoolExecutor threadPool = new ThreadPoolExecutor(2, 8, 3, TimeUnit.SECONDS, new LinkedBlockingDeque<>());
+    private final SSLSocket socket;
 
     // incoming events
     private final Thread inThread = new Thread(runLoop(this::inputLoop));
@@ -80,8 +83,9 @@ public class EventJuggler implements Closeable {
     private final Object handlingTimeoutsLock = new Object();
     private boolean handlingTimeouts = false;
 
-    EventJuggler(Context context, TCPReader reader, TCPWriter writer, Consumer<Throwable> onDeath, long pingInterval, long pingTimeout) {
+    EventJuggler(Context context, SSLSocket socket, TCPReader reader, TCPWriter writer, Consumer<Throwable> onDeath, long pingInterval, long pingTimeout) {
         this.context = context;
+        this.socket = socket;
         this.reader = reader;
         this.writer = writer;
         this.pingInterval = pingInterval;
@@ -107,6 +111,10 @@ public class EventJuggler implements Closeable {
             dead = true;
         }
 
+        tryClose(socket);
+        tryClose(reader);
+        tryClose(writer);
+
         try {
             inThread.interrupt();
             outThread.interrupt();
@@ -119,9 +127,6 @@ public class EventJuggler implements Closeable {
             if (entry.type() == QueuedOutput.Type.EVENT)
                 ((QueuedEvent) entry).adapter().throwError(new IOException("connection closed"));
         }
-
-        tryClose(reader);
-        tryClose(writer);
 
         threadPool.shutdown();
     }

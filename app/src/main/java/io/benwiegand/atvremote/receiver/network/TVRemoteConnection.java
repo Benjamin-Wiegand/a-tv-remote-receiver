@@ -75,7 +75,7 @@ public class TVRemoteConnection implements Closeable {
 
             writer = TCPWriter.createFromStream(socket.getOutputStream(), CHARSET);
             reader = TCPReader.createFromStream(socket.getInputStream(), CHARSET);
-            eventJuggler = new EventJuggler(context, reader, writer, this::onSocketDeath, KEEPALIVE_INTERVAL, KEEPALIVE_TIMEOUT);
+            eventJuggler = new EventJuggler(context, socket, reader, writer, this::onSocketDeath, KEEPALIVE_INTERVAL, KEEPALIVE_TIMEOUT);
 
             String version = reader.nextLine(SOCKET_AUTH_TIMEOUT);
 
