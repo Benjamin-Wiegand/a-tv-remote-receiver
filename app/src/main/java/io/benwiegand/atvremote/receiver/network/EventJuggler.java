@@ -221,7 +221,7 @@ public class EventJuggler implements Closeable {
     private void handleEvent(String line) {
         // responses start with '!'
         if (line.charAt(0) == '!') {
-            threadPool.execute(() -> handleResponse(line));
+            handleResponse(line);
             return;
         }
 
