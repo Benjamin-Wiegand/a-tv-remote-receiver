@@ -20,8 +20,10 @@
     <string name="notification_pairing_failed_description_invalid_code">invalid pairing code</string>
     <string name="notification_pairing_failed_description_cancelled">pairing was cancelled</string>
 
-    <string name="notification_remote_connected_title">remote connected</string>
-    <string name="notification_remote_disconnected_title">remote disconnected</string>
+    <string name="notification_remote_connected_title_format">{0} connected</string>
+    <string name="notification_remote_connected_description">remote connected</string>
+    <string name="notification_remote_disconnected_title_format">{0} disconnected</string>
+    <string name="notification_remote_disconnected_description">remote disconnected</string>
 
     <!-- protocol -->
     <string name="protocol_error_mouse_move_bad_coordinates">mouse coordinates must be exactly two integers</string>

@@ -1,9 +1,12 @@
 package io.benwiegand.atvremote.receiver.network;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.*;
 
+import android.content.ComponentName;
 import android.content.Context;
+import android.content.Intent;
 import android.util.Log;
 
 import androidx.annotation.StringRes;
@@ -13,6 +16,8 @@ import com.google.gson.Gson;
 import java.io.Closeable;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.text.MessageFormat;
+import java.time.Instant;
 
 import javax.net.ssl.SSLSocket;
 
@@ -25,6 +30,8 @@ import io.benwiegand.atvremote.receiver.protocol.PairingData;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
 import io.benwiegand.atvremote.receiver.protocol.json.ErrorDetails;
+import io.benwiegand.atvremote.receiver.protocol.json.ReceiverDeviceMeta;
+import io.benwiegand.atvremote.receiver.protocol.json.RemoteDeviceMeta;
 
 public class TVRemoteConnection implements Closeable {
     private static final String TAG = TVRemoteConnection.class.getSimpleName();
@@ -44,7 +51,7 @@ public class TVRemoteConnection implements Closeable {
 
     private final PairingManager pairingManager;
     private Runnable cancelPairingCallback = null;
-    private PairingData pairingData = null; //todo: update pairing data with pairing manager
+    private PairingData pairingData = null;
     private final ControlScheme controlScheme;
 
     private boolean dead = false;
@@ -106,7 +113,12 @@ public class TVRemoteConnection implements Closeable {
         tryClose(this);
 
         controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                o.displayNotification(R.string.notification_remote_disconnected_title, "", R.drawable.denied));
+                o.displayNotification(
+                        MessageFormat.format(
+                                context.getString(R.string.notification_remote_disconnected_title_format),
+                                getRemoteFriendlyName()),
+                        R.string.notification_remote_disconnected_description,
+                        R.drawable.denied));
     }
 
     private void initPairing() throws IOException, InterruptedException {
@@ -150,10 +162,58 @@ public class TVRemoteConnection implements Closeable {
         // connection is trusted at this point
         Log.i(TAG, "remote connected: " + socket.getRemoteSocketAddress());
 
+        exchangeMeta();
+        pairingData.updateLastConnection(socket.getInetAddress().getHostAddress(), Instant.now().getEpochSecond());
+        commitPairingMetaDiscardResult();
+
         controlScheme.getOverlayOutputOptional().ifPresent(o ->
-                o.displayNotification(R.string.notification_remote_connected_title, socket.getRemoteSocketAddress().toString(), R.drawable.phone));
+                o.displayNotification(
+                        MessageFormat.format(
+                                context.getString(R.string.notification_remote_connected_title_format),
+                                getRemoteFriendlyName()),
+                        R.string.notification_remote_connected_description,
+                        pairingData.deviceTypeEnum().toDrawable()));
 
         eventJuggler.start(getRemoteOperations());
+    }
+
+    private String getRemoteFriendlyName() {
+        if (pairingData == null) return socket.getRemoteSocketAddress().toString();
+        String friendlyName = pairingData.friendlyName();
+        if (friendlyName == null) return socket.getRemoteSocketAddress().toString();
+        return friendlyName;
+    }
+
+    private void exchangeMeta() throws IOException, InterruptedException {
+        writer.sendLine(OP_META + " " + gson.toJson(ReceiverDeviceMeta.getDeviceMeta(context, controlScheme)));
+
+        String line = reader.nextLine(SOCKET_AUTH_TIMEOUT);
+        if (line == null) {
+            Log.w(TAG, "metadata fetch timed out");
+            return;
+        }
+
+        String[] opLine = line.split(" ", 2);
+
+        if (opLine[0].equals(OP_META) && opLine.length == 2) {
+            RemoteDeviceMeta meta = gson.fromJson(opLine[1], RemoteDeviceMeta.class);
+
+            Log.v(TAG, "got metadata: " + meta);
+            pairingData = pairingData.updateDeviceMeta(meta);
+            pairingManager.updatePairingData(pairingData);
+        } else if (opLine[0].equals("!" + OP_META)) {
+            Log.v(TAG, "no meta");
+        } else {
+            Log.w(TAG, "invalid metadata response: " + line);
+        }
+    }
+
+    private void commitPairingMetaDiscardResult() {
+        new Thread(() -> {
+            if (!pairingManager.updatePairingData(pairingData)) {
+                Log.w(TAG, "failed to update pairing data");
+            }
+        }).start();
     }
 
     private void protocolAssert(boolean condition, @StringRes int stringRes, String message) throws RemoteProtocolException {

@@ -22,6 +22,9 @@ public class ProtocolConstants {
     public static final String INIT_OP_PAIR = "PAIR";
     public static final String INIT_OP_CONNECT = "CONN";
 
+    // meta
+    public static final String OP_META = "META";
+
     // global operations
     public static final String OP_PING = "PING";
 

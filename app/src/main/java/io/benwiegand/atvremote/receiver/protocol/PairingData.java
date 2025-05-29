@@ -4,6 +4,8 @@ import android.content.SharedPreferences;
 
 import java.time.Instant;
 
+import io.benwiegand.atvremote.receiver.protocol.json.RemoteDeviceMeta;
+
 public record PairingData(String token, String friendlyName, String lastConnectedIpAddress, long lastConnectedTimestamp, int deviceType) {
 
     public Instant lastConnectedInstant() {
@@ -13,6 +15,14 @@ public record PairingData(String token, String friendlyName, String lastConnecte
 
     public DeviceType deviceTypeEnum() {
         return DeviceType.fromInt(deviceType());
+    }
+
+    public PairingData updateLastConnection(String ipAddress, long timestamp) {
+        return new PairingData(token, friendlyName, ipAddress, timestamp, deviceType);
+    }
+
+    public PairingData updateDeviceMeta(RemoteDeviceMeta deviceMeta) {
+        return new PairingData(token, deviceMeta.friendlyName(), lastConnectedIpAddress, lastConnectedTimestamp, deviceMeta.type());
     }
 
     // for shared preferences
