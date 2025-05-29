@@ -322,7 +322,8 @@ public class EventJuggler implements Closeable {
                     QueuedEvent event = (QueuedEvent) output;
                     try {
                         String eventId = generateEventId();
-                        assert responseMap.putIfAbsent(eventId, event.toInFlightEvent()) == null;
+                        InFlightEvent collision = responseMap.putIfAbsent(eventId, event.toInFlightEvent());
+                        assert collision == null; // this should be impossible
                         writer.sendLine(eventId + " " + event.event());
                     } catch (Throwable t) {
                         threadPool.execute(() -> event.adapter().throwError(t));

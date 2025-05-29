@@ -180,7 +180,7 @@ public class Sec<T> {
 
         @Override
         public void throwError(Throwable t) {
-            assert t != null;
+            if (t == null) throw new IllegalArgumentException("throwable cannot be null");
             synchronized (lock) {
                 if (finished) throw new IllegalStateException("a result or error has already been provided");
                 finished = true;

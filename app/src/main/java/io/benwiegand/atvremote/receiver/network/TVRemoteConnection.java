@@ -140,7 +140,10 @@ public class TVRemoteConnection implements Closeable {
             writer.sendLine(OP_UNAUTHORIZED);
             return;
         }
-        assert auth.equals(pairingData.token());    // the token should match
+
+        // the token should already match, but it doesn't hurt to check, even in release builds
+        if (!auth.equals(pairingData.token()))
+            throw new AssertionError("PairingData doesn't match provided auth token!");
 
         writer.sendLine(OP_CONFIRM);
 
