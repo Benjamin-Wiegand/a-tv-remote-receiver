@@ -8,9 +8,13 @@ import java.util.HashSet;
 
 import io.benwiegand.atvremote.receiver.control.ControlScheme;
 
+import static io.benwiegand.atvremote.receiver.control.IntentConstants.*;
+
 public record ReceiverCapabilities(HashSet<String> supportedFeatures) {
 
     public static ReceiverCapabilities getCapabilities(Context context, ControlScheme scheme) {
+        PackageManager pm = context.getPackageManager();
+
         HashSet<String> features = new HashSet<>();
 
         // for now always assume support for these
@@ -19,19 +23,27 @@ public record ReceiverCapabilities(HashSet<String> supportedFeatures) {
         features.add(SUPPORTED_FEATURE_MEDIA_SESSIONS);
         features.add(SUPPORTED_FEATURE_MEDIA_CONTROLS);
 
-        if (supportsDashboardButton(context)) features.add(SUPPORTED_FEATURE_DASHBOARD_BUTTON);
+        if (supportsDashboardButton(pm)) features.add(SUPPORTED_FEATURE_DASHBOARD_BUTTON);
+        if (supportsLineageSystemOptionsButton(pm)) features.add(SUPPORTED_FEATURE_LINEAGE_SYSTEM_OPTIONS_BUTTON);
 
         return new ReceiverCapabilities(features);
     }
 
-    private static boolean supportsDashboardButton(Context context) {
-        ComponentName componentName = new ComponentName("com.google.android.apps.tv.launcherx", "com.google.android.apps.tv.launcherx.dashboard.DashboardHandler");
+    private static boolean checkForActivity(PackageManager pm, ComponentName componentName) {
         try {
-            context.getPackageManager().getActivityInfo(componentName, 0);
+            pm.getActivityInfo(componentName, 0);
             return true;
         } catch (PackageManager.NameNotFoundException e) {
             return false;
         }
+    }
+
+    private static boolean supportsDashboardButton(PackageManager pm) {
+        return checkForActivity(pm, GOOGLE_TV_DASHBOARD_ACTIVITY);
+    }
+
+    private static boolean supportsLineageSystemOptionsButton(PackageManager pm) {
+        return checkForActivity(pm, LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
     }
 
     // non-TV builds
@@ -40,6 +52,9 @@ public record ReceiverCapabilities(HashSet<String> supportedFeatures) {
 
     // google tv
     public static final String SUPPORTED_FEATURE_DASHBOARD_BUTTON = "DASHBOARD_BUTTON";
+
+    // lineage os
+    public static final String SUPPORTED_FEATURE_LINEAGE_SYSTEM_OPTIONS_BUTTON = "LINEAGE_SYSTEM_OPTIONS_BUTTON";
 
     // advanced inputs
     public static final String SUPPORTED_FEATURE_MEDIA_CONTROLS = "MEDIA_CONTROLS";

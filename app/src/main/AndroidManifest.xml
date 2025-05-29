@@ -17,6 +17,7 @@
 
     <queries>
         <package android:name="com.google.android.apps.tv.launcherx" /> <!-- dashboard button -->
+        <package android:name="org.lineageos.tv.launcher" /> <!-- system options button -->
     </queries>
 
     <application
