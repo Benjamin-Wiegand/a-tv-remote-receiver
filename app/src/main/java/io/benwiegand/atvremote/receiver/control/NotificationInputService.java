@@ -1,12 +1,10 @@
 package io.benwiegand.atvremote.receiver.control;
 
-import static android.view.KeyEvent.KEYCODE_MEDIA_FAST_FORWARD;
 import static android.view.KeyEvent.KEYCODE_MEDIA_NEXT;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PAUSE;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS;
-import static android.view.KeyEvent.KEYCODE_MEDIA_REWIND;
 
 import android.content.ComponentName;
 import android.content.Intent;
@@ -130,12 +128,31 @@ public class NotificationInputService extends NotificationListenerService {
 
         @Override
         public void skipBackward() {
-            simulateButton(KEYCODE_MEDIA_REWIND);
+//            simulateButton(KEYCODE_MEDIA_REWIND);
+            getPrimaryMediaSession().ifPresent(session -> {
+                if (session.getPlaybackState() == null) {
+                    session.getTransportControls().rewind();
+                    return;
+                }
+                long pos = session.getPlaybackState().getPosition();
+                long targetPos = pos - 10000;
+                if (targetPos < 0) targetPos = 0;
+                session.getTransportControls().seekTo(targetPos);
+            });
         }
 
         @Override
         public void skipForward() {
-            simulateButton(KEYCODE_MEDIA_FAST_FORWARD);
+//            simulateButton(KEYCODE_MEDIA_FAST_FORWARD);
+            getPrimaryMediaSession().ifPresent(session -> {
+                if (session.getPlaybackState() == null) {
+                    session.getTransportControls().fastForward();
+                    return;
+                }
+                long pos = session.getPlaybackState().getPosition();
+                long targetPos = pos + 10000;
+                session.getTransportControls().seekTo(targetPos);
+            });
         }
 
         @Override
