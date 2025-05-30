@@ -62,6 +62,8 @@ public class ProtocolConstants {
     public static final String OP_CURSOR_DOWN = "CURSOR_DOWN";
     public static final String OP_CURSOR_UP = "CURSOR_UP";
 
+    public static final String OP_EXTRA_BUTTON = "EXTRA_BUTTON";
+
     public static final String MDNS_SERVICE_TYPE = "_atv_remote_receiver_bw._tcp";
 
 }

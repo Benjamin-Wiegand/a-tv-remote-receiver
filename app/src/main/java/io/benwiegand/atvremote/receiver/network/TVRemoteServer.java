@@ -75,6 +75,7 @@ public class TVRemoteServer extends Service {
         ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
                 accessibilityServiceException,
                 accessibilityServiceException,
+                accessibilityServiceException,
                 "not implemented",
                 "not implemented",
                 accessibilityServiceException,
@@ -211,6 +212,7 @@ public class TVRemoteServer extends Service {
             controlScheme.setNavigationInput(binder.getNavigationInput());
             controlScheme.setCursorInput(binder.getCursorInput());
             controlScheme.setVolumeInput(binder.getVolumeInput());
+            controlScheme.setActivityLauncherInput(binder.getActivityLauncherInput());
 
             controlScheme.setOverlayOutput(binder.getOverlayOutput());
         }

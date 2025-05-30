@@ -2,6 +2,7 @@ package io.benwiegand.atvremote.receiver.control;
 
 import java.util.Optional;
 
+import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
@@ -21,6 +22,7 @@ import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 //  - I do my own android tv 15 builds, it might be nice to also have everything doable as a system app
 public class ControlScheme {
     // input
+    private ActivityLauncherInput activityLauncherInput = null;
     private CursorInput cursorInput = null;
     private DirectionalPadInput directionalPadInput = null;
     private KeyboardInput keyboardInput = null;
@@ -41,6 +43,15 @@ public class ControlScheme {
 
     public void setControlSourceExceptions(ControlSourceErrors controlSourceErrors) {
         this.controlSourceErrors = controlSourceErrors;
+    }
+
+    public ActivityLauncherInput getActivityLauncherInput() throws ControlNotInitializedException {
+        if (activityLauncherInput == null) throw new ControlNotInitializedException(controlSourceErrors.activityLauncherInputException());
+        return activityLauncherInput;
+    }
+
+    public void setActivityLauncherInput(ActivityLauncherInput activityLauncherInput) {
+        this.activityLauncherInput = activityLauncherInput;
     }
 
     public CursorInput getCursorInput() throws ControlNotInitializedException {

@@ -30,6 +30,7 @@
     <string name="protocol_error_unexpected">encountered unexpected error: {0} - {1}</string>
     <string name="protocol_error_event_timeout">timed out</string>
     <string name="protocol_error_pairing_code_invalid">pairing code rejected</string>
+    <string name="protocol_error_extra_button_no_such_button">unknown button</string>
 
     <!-- control sources -->
     <string name="control_source_not_loaded_accessibility">Please enable the \"A TV Remote Inputs\" accessibility service in your TV settings.\n\nIt is used to:\n - display the pairing dialog while the app isn\'t open\n - simulate button presses so you can control your TV\n\nUsually it\'s under: Settings > Accessibility\nSometimes it\'s under: Settings > Device Preferences > Accessibility\nOtherwise you may have to look it up for your specific TV.</string>

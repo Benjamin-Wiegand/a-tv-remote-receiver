@@ -1,12 +1,12 @@
 package io.benwiegand.atvremote.receiver.network;
 
-import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+import static io.benwiegand.atvremote.receiver.control.IntentConstants.LINEAGE_SYSTEM_OPTIONS_ACTIVITY;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.*;
+import static io.benwiegand.atvremote.receiver.protocol.json.ReceiverCapabilities.EXTRA_BUTTON_GTV_DASHBOARD;
+import static io.benwiegand.atvremote.receiver.protocol.json.ReceiverCapabilities.EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS;
 
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
 import android.util.Log;
 
 import androidx.annotation.StringRes;
@@ -315,6 +315,15 @@ public class TVRemoteConnection implements Closeable {
                 }),
                 new OperationDefinition(OP_CURSOR_DOWN, () -> controlScheme.getCursorInput().cursorDown()),
                 new OperationDefinition(OP_CURSOR_UP, () -> controlScheme.getCursorInput().cursorUp()),
+
+                new OperationDefinition(OP_EXTRA_BUTTON, extra -> {
+                    switch (extra) {
+                        case EXTRA_BUTTON_GTV_DASHBOARD -> controlScheme.getNavigationInput().navNotifications();
+                        case EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS -> controlScheme.getActivityLauncherInput().launchActivity(LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
+                        default -> throw new RemoteProtocolException(R.string.protocol_error_extra_button_no_such_button, "no such button: " + extra);
+                    }
+                }),
+
                 new OperationDefinition(OP_PING, () -> {}),
         };
     }

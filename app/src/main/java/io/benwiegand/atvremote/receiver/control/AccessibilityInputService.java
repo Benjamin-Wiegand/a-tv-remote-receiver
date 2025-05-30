@@ -1,8 +1,11 @@
 package io.benwiegand.atvremote.receiver.control;
 
+import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
+
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.SuppressLint;
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -32,6 +35,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.cursor.AccessibilityGestureCursor;
+import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
@@ -55,6 +59,7 @@ public class AccessibilityInputService extends AccessibilityService {
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
     private final NavigationInput navigationInput = new NavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
+    private final ActivityLauncherInput activityLauncherInput = new ActivityLauncherInputHandler();
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
@@ -372,6 +377,22 @@ public class AccessibilityInputService extends AccessibilityService {
         }
     }
 
+    public class ActivityLauncherInputHandler implements ActivityLauncherInput {
+        @Override
+        public void launchActivity(ComponentName activityComponent) {
+            Log.d(TAG, "launching activity: " + activityComponent);
+            Intent intent = new Intent();
+            intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
+            intent.setComponent(activityComponent);
+            startActivity(intent);
+        }
+
+        @Override
+        public void destroy() {
+
+        }
+    }
+
     // todo: add keyboard, media, scroll
 
     public class OverlayOutputHandler implements OverlayOutput {
@@ -447,6 +468,10 @@ public class AccessibilityInputService extends AccessibilityService {
 
         public VolumeInput getVolumeInput() {
             return volumeInput;
+        }
+
+        public ActivityLauncherInput getActivityLauncherInput() {
+            return activityLauncherInput;
         }
 
         public OverlayOutput getOverlayOutput() {
