@@ -55,6 +55,25 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_input_service_config" />
         </service>
+
+        <service
+            android:name=".control.NotificationInputService"
+            android:exported="false"
+            android:label="@string/notification_input_service_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"> <!-- todo ???? -->
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.service.notification.default_filter_types"
+                android:value="">
+            </meta-data>
+            <meta-data
+                android:name="android.service.notification.disabled_filter_types"
+                android:value="conversations|alerting|silent|ongoing">
+            </meta-data>
+        </service>
+
         <service
             android:name=".network.TVRemoteServer"
             android:exported="false" />

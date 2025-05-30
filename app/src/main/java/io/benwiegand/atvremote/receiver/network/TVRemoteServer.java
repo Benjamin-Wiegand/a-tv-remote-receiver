@@ -3,18 +3,13 @@ package io.benwiegand.atvremote.receiver.network;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 
 import android.app.Service;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.net.nsd.NsdManager;
 import android.os.Binder;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
 
 import androidx.annotation.Nullable;
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.io.IOException;
 import java.security.KeyManagementException;
@@ -28,13 +23,10 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 
-import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.auth.ssl.CorruptedKeystoreException;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeyUtil;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeystoreManager;
-import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
-import io.benwiegand.atvremote.receiver.control.ControlScheme;
-import io.benwiegand.atvremote.receiver.control.ControlSourceErrors;
+import io.benwiegand.atvremote.receiver.control.ControlSourceConnectionManager;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
 
 public class TVRemoteServer extends Service {
@@ -42,7 +34,6 @@ public class TVRemoteServer extends Service {
 
     private static final int AUTO_PORT_NUMBER = 0;
 
-    private final BroadcastReceiver accessibilityBinderReceiver = new AccessibilityBinderReceiver();
     private final ServerBinder binder = new ServerBinder();
     private SSLServerSocketFactory serverSocketFactory = null;
     private PairingManager pairingManager = null;
@@ -54,42 +45,21 @@ public class TVRemoteServer extends Service {
 
     private final Object listenThreadLock = new Object();
     private Thread listenThread = null;
-    private ControlScheme controlScheme;
     private SSLServerSocket serverSocket = null;
     private boolean shutdown = false;
+
+    private ControlSourceConnectionManager controlSourceConnectionManager;
 
 
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate()");
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(AccessibilityInputService.INTENT_ACCESSIBILITY_INPUT_BINDER_INSTANCE);
-        LocalBroadcastManager
-                .getInstance(this)
-                .registerReceiver(accessibilityBinderReceiver, filter);
 
+        controlSourceConnectionManager = new ControlSourceConnectionManager(this);
+        pairingManager = new PairingManager(this, controlSourceConnectionManager.getControlScheme());
         nsdManager = this.getSystemService(NsdManager.class);
 
-        // todo: this should be set based on whatever control schemes are configured
-        String accessibilityServiceException = getString(R.string.control_source_not_loaded_accessibility);
-        ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
-                accessibilityServiceException,
-                accessibilityServiceException,
-                accessibilityServiceException,
-                "not implemented",
-                "not implemented",
-                accessibilityServiceException,
-                "not implemented",
-                accessibilityServiceException,
-                accessibilityServiceException
-        );
-        controlScheme = new ControlScheme(controlSourceErrors);
-
-        pairingManager = new PairingManager(this, controlScheme);
-
         startListening();
-        requestAccessibilityBinder();
-
     }
 
     @Override
@@ -103,6 +73,8 @@ public class TVRemoteServer extends Service {
         }
 
         if (serverSocket != null) tryClose(serverSocket);
+
+        controlSourceConnectionManager.destroy();
     }
 
     @Nullable
@@ -173,7 +145,7 @@ public class TVRemoteServer extends Service {
                 Log.d(TAG, "LocalPrincipal: " + newSocket.getSession().getLocalPrincipal());
 
                 synchronized (connections) {
-                    TVRemoteConnection connection = new TVRemoteConnection(this, pairingManager, newSocket, controlScheme);
+                    TVRemoteConnection connection = new TVRemoteConnection(this, pairingManager, newSocket, controlSourceConnectionManager.getControlScheme());
                     connections.add(connection);
                 }
             }
@@ -187,37 +159,6 @@ public class TVRemoteServer extends Service {
             stopSelf();
         }
     }
-
-    public void requestAccessibilityBinder() {
-        Log.v(TAG, "requesting accessibility service binder");
-        Intent intent = new Intent(AccessibilityInputService.INTENT_ACCESSIBILITY_INPUT_BINDER_REQUEST);
-        LocalBroadcastManager
-                .getInstance(this)
-                .sendBroadcast(intent);
-    }
-
-    public class AccessibilityBinderReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "got accessibility binder instance intent");
-            Bundle extras = intent.getExtras();
-            assert extras != null; // this intent should always have an extra
-
-            AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) extras.getBinder(AccessibilityInputService.EXTRA_BINDER_INSTANCE);
-            Log.i(TAG, "accessibility binder instance: " + binder);
-            assert binder != null; // this extra should never be null
-
-            // set accessibility control methods
-            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
-            controlScheme.setNavigationInput(binder.getNavigationInput());
-            controlScheme.setCursorInput(binder.getCursorInput());
-            controlScheme.setVolumeInput(binder.getVolumeInput());
-            controlScheme.setActivityLauncherInput(binder.getActivityLauncherInput());
-
-            controlScheme.setOverlayOutput(binder.getOverlayOutput());
-        }
-    }
-
 
     public class ServerBinder extends Binder {
         public int getPort() {

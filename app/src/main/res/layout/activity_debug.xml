@@ -19,18 +19,6 @@
             android:text="try bind" />
 
         <Button
-            android:id="@+id/press_home_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="simulate home" />
-
-        <Button
-            android:id="@+id/show_notifs_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="show notifs" />
-
-        <Button
             android:id="@+id/show_cursor_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -59,6 +47,12 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="go to accessibility settings" />
+
+        <Button
+            android:id="@+id/notification_listener_settings_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="go to notification listener settings" />
 
         <TextView
             android:id="@+id/debug_info_text"

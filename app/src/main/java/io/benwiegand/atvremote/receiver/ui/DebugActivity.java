@@ -2,6 +2,7 @@ package io.benwiegand.atvremote.receiver.ui;
 
 
 import android.annotation.SuppressLint;
+import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
@@ -23,6 +24,7 @@ import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
+import io.benwiegand.atvremote.receiver.control.NotificationInputService;
 import io.benwiegand.atvremote.receiver.network.TVRemoteConnection;
 import io.benwiegand.atvremote.receiver.network.TVRemoteServer;
 
@@ -50,18 +52,6 @@ public class DebugActivity extends AppCompatActivity {
             Intent intent = new Intent(AccessibilityInputService.INTENT_ACCESSIBILITY_INPUT_BINDER_REQUEST);
             LocalBroadcastManager.getInstance(this).sendBroadcast(intent);
             Log.i(TAG, "binder request broadcast sent");
-        });
-
-        findViewById(R.id.press_home_button).setOnClickListener(v -> {
-            if (binder == null) return;
-            // todo fixme
-//            binder.navHome();
-        });
-
-        findViewById(R.id.show_notifs_button).setOnClickListener(v -> {
-            if (binder == null) return;
-            // todo fixme
-//            binder.navNotifications();
         });
 
         findViewById(R.id.show_test_notif_button).setOnClickListener(v -> {
@@ -100,6 +90,17 @@ public class DebugActivity extends AppCompatActivity {
 
         findViewById(R.id.accessibility_settings_button).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+
+        findViewById(R.id.notification_listener_settings_button).setOnClickListener(v -> {
+            Intent detailIntent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
+            detailIntent.putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(this, NotificationInputService.class).flattenToString());
+            try {
+                startActivity(detailIntent);
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "notification listener detail activity does not exist, falling back");
+                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+            }
+        });
 
         findViewById(R.id.update_debug_info_button).setOnClickListener(v -> {
             TextView debugInfoText = findViewById(R.id.debug_info_text);

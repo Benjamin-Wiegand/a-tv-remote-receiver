@@ -290,7 +290,7 @@ public class TVRemoteConnection implements Closeable {
                 new OperationDefinition(OP_VOLUME_DOWN, () -> controlScheme.getVolumeInput().volumeDown()),
                 new OperationDefinition(OP_MUTE, () -> controlScheme.getVolumeInput().toggleMute()),
 
-                new OperationDefinition(OP_PAUSE, () -> controlScheme.getMediaInput().pause()),
+                new OperationDefinition(OP_PAUSE, () -> controlScheme.getMediaInput().playPause()),
                 new OperationDefinition(OP_NEXT_TRACK, () -> controlScheme.getMediaInput().nextTrack()),
                 new OperationDefinition(OP_PREV_TRACK, () -> controlScheme.getMediaInput().prevTrack()),
                 new OperationDefinition(OP_SKIP_BACKWARD, () -> controlScheme.getMediaInput().skipBackward()),
