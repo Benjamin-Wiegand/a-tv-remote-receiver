@@ -25,8 +25,11 @@ public record ReceiverCapabilities(
         // for now always assume support for these
         features.add(SUPPORTED_FEATURE_APP_SWITCHER);
         features.add(SUPPORTED_FEATURE_QUICK_SETTINGS);
+        features.add(SUPPORTED_FEATURE_NOTIFICATIONS);
         features.add(SUPPORTED_FEATURE_MEDIA_SESSIONS);
         features.add(SUPPORTED_FEATURE_MEDIA_CONTROLS);
+        features.add(SUPPORTED_FEATURE_MOUSE);
+        features.add(SUPPORTED_FEATURE_VOLUME);
 
         if (supportsDashboardButton(pm)) buttons.add(EXTRA_BUTTON_GTV_DASHBOARD);
         if (supportsLineageSystemOptionsButton(pm)) buttons.add(EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS);
@@ -55,9 +58,16 @@ public record ReceiverCapabilities(
     public static final String SUPPORTED_FEATURE_APP_SWITCHER = "APP_SWITCHER";
     public static final String SUPPORTED_FEATURE_QUICK_SETTINGS = "QUICK_SETTINGS";
 
+    // vendor-dependent
+    public static final String SUPPORTED_FEATURE_NOTIFICATIONS = "NOTIFICATIONS";
+
     // advanced inputs
     public static final String SUPPORTED_FEATURE_MEDIA_CONTROLS = "MEDIA_CONTROLS";
     public static final String SUPPORTED_FEATURE_MEDIA_SESSIONS = "MEDIA_SESSIONS";
+    public static final String SUPPORTED_FEATURE_MOUSE = "MOUSE";
+
+    // setup-dependent
+    public static final String SUPPORTED_FEATURE_VOLUME = "VOLUME";
 
     // google tv
     public static final String EXTRA_BUTTON_GTV_DASHBOARD = "DASHBOARD_BUTTON";
