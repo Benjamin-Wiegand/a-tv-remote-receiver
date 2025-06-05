@@ -64,6 +64,12 @@ public class ProtocolConstants {
 
     public static final String OP_EXTRA_BUTTON = "EXTRA_BUTTON";
 
+    // event stream subscriptions
+    public static final String OP_EVENT_STREAM_SUBSCRIBE = "SUBSCRIBE";
+    public static final String OP_EVENT_STREAM_UNSUBSCRIBE = "UNSUBSCRIBE";
+    public static final String OP_EVENT_STREAM_EVENT = "EVENT";
+
+    // discovery
     public static final String MDNS_SERVICE_TYPE = "_atv_remote_receiver_bw._tcp";
 
 }
