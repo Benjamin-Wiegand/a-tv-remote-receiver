@@ -55,7 +55,7 @@ public class TVRemoteServer extends Service {
     public void onCreate() {
         Log.d(TAG, "onCreate()");
 
-        controlSourceConnectionManager = new ControlSourceConnectionManager(this);
+        controlSourceConnectionManager = new ControlSourceConnectionManager(this, this::onInputServiceBind);
         pairingManager = new PairingManager(this, controlSourceConnectionManager.getControlScheme());
         nsdManager = this.getSystemService(NsdManager.class);
 
@@ -81,6 +81,9 @@ public class TVRemoteServer extends Service {
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
+    }
+
+    private void onInputServiceBind(IBinder iBinder) {
     }
 
     private void startListening() {

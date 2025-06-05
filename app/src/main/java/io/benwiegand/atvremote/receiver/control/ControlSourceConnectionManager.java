@@ -12,6 +12,8 @@ import android.util.Log;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import java.util.function.Consumer;
+
 import io.benwiegand.atvremote.receiver.R;
 
 public class ControlSourceConnectionManager {
@@ -23,11 +25,14 @@ public class ControlSourceConnectionManager {
     private final ControlScheme controlScheme;
     private final Context context;
 
+    private final Consumer<IBinder> onBind;
+
     private final Object deathLock = new Object();
     private boolean dead = false;
 
-    public ControlSourceConnectionManager(Context context) {
+    public ControlSourceConnectionManager(Context context, Consumer<IBinder> onBind) {
         this.context = context;
+        this.onBind = onBind;
 
         String accessibilityServiceException = context.getString(R.string.control_source_not_loaded_accessibility);
         String notificationServiceException = context.getString(R.string.control_source_not_loaded_notification_listener);
@@ -95,6 +100,8 @@ public class ControlSourceConnectionManager {
             controlScheme.setActivityLauncherInput(binder.getActivityLauncherInput());
 
             controlScheme.setOverlayOutput(binder.getOverlayOutput());
+
+            onBind.accept(binder);
         }
     }
 
@@ -121,6 +128,7 @@ public class ControlSourceConnectionManager {
             Log.i(TAG, "NotificationInputService connected");
             NotificationInputService.ServiceBinder binder = (NotificationInputService.ServiceBinder) service;
             controlScheme.setMediaInput(binder.getMediaInput());
+            onBind.accept(binder);
         }
 
         @Override
