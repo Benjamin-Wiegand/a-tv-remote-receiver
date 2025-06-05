@@ -6,6 +6,11 @@ import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE;
 import static android.view.KeyEvent.KEYCODE_MEDIA_PREVIOUS;
 
+import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.EVENT_TYPE_MEDIA_METADATA;
+import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.EVENT_TYPE_MEDIA_POSITION;
+import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.EVENT_TYPE_MEDIA_SESSIONS;
+import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.EVENT_TYPE_MEDIA_STATE;
+
 import android.content.ComponentName;
 import android.content.Intent;
 import android.media.session.MediaController;
@@ -18,6 +23,8 @@ import android.view.KeyEvent;
 
 import androidx.annotation.Nullable;
 
+import com.google.gson.Gson;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
@@ -25,9 +32,14 @@ import java.util.Optional;
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
+import io.benwiegand.atvremote.receiver.protocol.json.MediaSessionsEvent;
+import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
+import io.benwiegand.atvremote.receiver.protocol.stream.OutgoingStateEventStream;
 
 public class NotificationInputService extends NotificationListenerService {
     private static final String TAG = NotificationInputService.class.getSimpleName();
+
+    private static final Gson gson = new Gson();
 
     private final IBinder binder = new ServiceBinder();
     private final MediaInput mediaInput = new MediaInputHandler();
@@ -35,17 +47,13 @@ public class NotificationInputService extends NotificationListenerService {
     private final Object activeSessionsLock = new Object();
     private List<MediaController> activeSessions = Collections.emptyList();
 
+    private OutgoingStateEventStream mediaSessionsEventStream = null;
+    private OutgoingStateEventStream mediaMetadataEventStream = null;
+    private OutgoingStateEventStream mediaPositionEventStream = null;
+    private OutgoingStateEventStream mediaStateEventStream = null;
+
     private ComponentName getComponentName() {
         return new ComponentName(this, NotificationInputService.class);
-    }
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-
-        MediaSessionManager mediaSessionManager = getSystemService(MediaSessionManager.class);
-        mediaSessionManager.addOnActiveSessionsChangedListener(this::onActiveSessionsChanged, getComponentName());
-        onActiveSessionsChanged(mediaSessionManager.getActiveSessions(getComponentName()));
     }
 
     private void onActiveSessionsChanged(@Nullable List<MediaController> mediaControllers) {
@@ -165,6 +173,19 @@ public class NotificationInputService extends NotificationListenerService {
 
         public MediaInput getMediaInput() {
             return mediaInput;
+        }
+
+        public void onServerBind(EventStreamManager eventStreamManager) {
+            Log.d(TAG, "onServerBind()");
+            mediaSessionsEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_SESSIONS);
+            mediaMetadataEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_METADATA);
+            mediaPositionEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_POSITION);
+            mediaStateEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_STATE);
+            mediaSessionsEventStream.addChannel(null);
+
+            MediaSessionManager mediaSessionManager = getSystemService(MediaSessionManager.class);
+            mediaSessionManager.addOnActiveSessionsChangedListener(NotificationInputService.this::onActiveSessionsChanged, getComponentName());
+            onActiveSessionsChanged(mediaSessionManager.getActiveSessions(getComponentName()));
         }
 
     }

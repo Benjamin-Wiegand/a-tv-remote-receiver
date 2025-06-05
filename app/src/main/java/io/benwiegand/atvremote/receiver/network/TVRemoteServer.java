@@ -91,7 +91,11 @@ public class TVRemoteServer extends Service {
     }
 
     private void onInputServiceBind(IBinder iBinder) {
+        if (iBinder instanceof NotificationInputService.ServiceBinder serviceBinder) {
+            serviceBinder.onServerBind(eventStreamManager);
+        }
     }
+
     private Sec<Void> sendEvent(UUID connectionUUID, String event) {
         TVRemoteConnection connection = connections.get(connectionUUID);
         if (connection == null) return Sec.premeditatedError(new IOException("no such connection"));

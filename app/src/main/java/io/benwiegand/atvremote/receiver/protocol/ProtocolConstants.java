@@ -69,6 +69,12 @@ public class ProtocolConstants {
     public static final String OP_EVENT_STREAM_UNSUBSCRIBE = "UNSUBSCRIBE";
     public static final String OP_EVENT_STREAM_EVENT = "EVENT";
 
+    // event stream types
+    public static final String EVENT_TYPE_MEDIA_SESSIONS = "MEDIA_SESSIONS";
+    public static final String EVENT_TYPE_MEDIA_METADATA = "MEDIA_META";
+    public static final String EVENT_TYPE_MEDIA_POSITION = "MEDIA_POS";
+    public static final String EVENT_TYPE_MEDIA_STATE = "MEDIA_STATE";
+
     // discovery
     public static final String MDNS_SERVICE_TYPE = "_atv_remote_receiver_bw._tcp";
 
