@@ -18,6 +18,9 @@ import java.io.IOException;
 import java.net.InetAddress;
 import java.text.MessageFormat;
 import java.time.Instant;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
 import javax.net.ssl.SSLSocket;
 
@@ -44,6 +47,8 @@ public class TVRemoteConnection implements Closeable {
 
     private final Context context;
 
+    private final UUID uuid;
+
     private final SSLSocket socket;
     private TCPReader reader = null;
     private TCPWriter writer = null;
@@ -54,13 +59,17 @@ public class TVRemoteConnection implements Closeable {
     private PairingData pairingData = null;
     private final ControlScheme controlScheme;
 
+    private final Object deathLock = new Object();
+    private final Runnable onDisconnect;
     private boolean dead = false;
 
-    public TVRemoteConnection(Context context, PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme) {
+    public TVRemoteConnection(Context context, UUID uuid, PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme, Runnable onDisconnect) {
         this.context = context;
+        this.uuid = uuid;
         this.pairingManager = pairingManager;
         this.socket = socket;
         this.controlScheme = controlScheme;
+        this.onDisconnect = onDisconnect;
         init();
     }
 
@@ -228,9 +237,11 @@ public class TVRemoteConnection implements Closeable {
     @Override
     public void close() {
         Log.d(TAG, "close()");
-        dead = true;
+        synchronized (deathLock) {
+            if (dead) return;
+            dead = true;
+        }
 
-        // todo: cleanup callback
         tryClose(socket);
 
         if (eventJuggler != null && !eventJuggler.isDead()) {
@@ -240,6 +251,8 @@ public class TVRemoteConnection implements Closeable {
             if (writer != null) tryClose(writer);
         }
         if (cancelPairingCallback != null) pairingManager.cancelPairing(cancelPairingCallback);
+
+        onDisconnect.run();
     }
 
     private OperationDefinition[] getPairingOperations() {

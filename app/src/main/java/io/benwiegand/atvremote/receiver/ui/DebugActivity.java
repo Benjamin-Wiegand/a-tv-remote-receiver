@@ -22,6 +22,9 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
+import java.util.Map;
+import java.util.UUID;
+
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
 import io.benwiegand.atvremote.receiver.control.NotificationInputService;
@@ -117,11 +120,13 @@ public class DebugActivity extends AppCompatActivity {
                             .append(serverBinder.getConnections().size())
                             .append("):\n");
 
-                for (TVRemoteConnection conn : serverBinder.getConnections()) sb
+                for (Map.Entry<UUID, TVRemoteConnection> entry : serverBinder.getConnections().entrySet()) sb
+                        .append(" - uuid ")
+                        .append(entry.getKey())
                         .append(" - from ")
-                        .append(conn.getRemoteAddress())
+                        .append(entry.getValue().getRemoteAddress())
                         .append(" - dead = ")
-                        .append(conn.isDead())
+                        .append(entry.getValue().isDead())
                         .append("\n");
 
             }

@@ -15,8 +15,9 @@ import java.io.IOException;
 import java.security.KeyManagementException;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
-import java.util.LinkedList;
-import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.SSLServerSocket;
@@ -38,7 +39,7 @@ public class TVRemoteServer extends Service {
     private SSLServerSocketFactory serverSocketFactory = null;
     private PairingManager pairingManager = null;
 
-    private final List<TVRemoteConnection> connections = new LinkedList<>();
+    private final Map<UUID, TVRemoteConnection> connections = new ConcurrentHashMap<>();
 
     private ServiceAdvertiser serviceAdvertiser = null;
     private NsdManager nsdManager = null;
@@ -67,7 +68,7 @@ public class TVRemoteServer extends Service {
         Log.d(TAG, "onDestroy()");
 
         shutdown = true;
-        for (TVRemoteConnection connection : connections) {
+        for (TVRemoteConnection connection : connections.values()) {
             //todo: move off main thread
             tryClose(connection);
         }
@@ -148,8 +149,12 @@ public class TVRemoteServer extends Service {
                 Log.d(TAG, "LocalPrincipal: " + newSocket.getSession().getLocalPrincipal());
 
                 synchronized (connections) {
-                    TVRemoteConnection connection = new TVRemoteConnection(this, pairingManager, newSocket, controlSourceConnectionManager.getControlScheme());
-                    connections.add(connection);
+                    UUID connectionUUID = UUID.randomUUID();
+                    TVRemoteConnection connection = new TVRemoteConnection(
+                            this, connectionUUID, pairingManager, newSocket,
+                            controlSourceConnectionManager.getControlScheme(),
+                            () -> onConnectionDeath(connectionUUID));
+                    connections.put(connectionUUID, connection);
                 }
             }
         } catch (IOException e) {
@@ -163,13 +168,17 @@ public class TVRemoteServer extends Service {
         }
     }
 
+    private void onConnectionDeath(UUID connectionUUID) {
+        connections.remove(connectionUUID);
+    }
+
     public class ServerBinder extends Binder {
         public int getPort() {
             if (serverSocket == null) return -1;
             return serverSocket.getLocalPort();
         }
 
-        public List<TVRemoteConnection> getConnections() {
+        public Map<UUID, TVRemoteConnection> getConnections() {
             return connections;
         }
     }
