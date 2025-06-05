@@ -1,6 +1,7 @@
 package io.benwiegand.atvremote.receiver.network;
 
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
+import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.OP_EVENT_STREAM_EVENT;
 
 import android.app.Service;
 import android.content.Intent;
@@ -24,11 +25,14 @@ import javax.net.ssl.SSLServerSocket;
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLSocket;
 
+import io.benwiegand.atvremote.receiver.async.Sec;
 import io.benwiegand.atvremote.receiver.auth.ssl.CorruptedKeystoreException;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeyUtil;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeystoreManager;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnectionManager;
+import io.benwiegand.atvremote.receiver.control.NotificationInputService;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
+import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
 
 public class TVRemoteServer extends Service {
     private static final String TAG = TVRemoteServer.class.getSimpleName();
@@ -38,6 +42,7 @@ public class TVRemoteServer extends Service {
     private final ServerBinder binder = new ServerBinder();
     private SSLServerSocketFactory serverSocketFactory = null;
     private PairingManager pairingManager = null;
+    private final EventStreamManager eventStreamManager = new EventStreamManager(this::sendEvent);
 
     private final Map<UUID, TVRemoteConnection> connections = new ConcurrentHashMap<>();
 
@@ -76,6 +81,7 @@ public class TVRemoteServer extends Service {
         if (serverSocket != null) tryClose(serverSocket);
 
         controlSourceConnectionManager.destroy();
+        eventStreamManager.destroy();
     }
 
     @Nullable
@@ -85,6 +91,13 @@ public class TVRemoteServer extends Service {
     }
 
     private void onInputServiceBind(IBinder iBinder) {
+    }
+    private Sec<Void> sendEvent(UUID connectionUUID, String event) {
+        TVRemoteConnection connection = connections.get(connectionUUID);
+        if (connection == null) return Sec.premeditatedError(new IOException("no such connection"));
+
+        return connection.sendOperation(OP_EVENT_STREAM_EVENT + " " + event)
+                .map(r -> null);
     }
 
     private void startListening() {
@@ -151,7 +164,7 @@ public class TVRemoteServer extends Service {
                 synchronized (connections) {
                     UUID connectionUUID = UUID.randomUUID();
                     TVRemoteConnection connection = new TVRemoteConnection(
-                            this, connectionUUID, pairingManager, newSocket,
+                            this, connectionUUID, pairingManager, eventStreamManager, newSocket,
                             controlSourceConnectionManager.getControlScheme(),
                             () -> onConnectionDeath(connectionUUID));
                     connections.put(connectionUUID, connection);

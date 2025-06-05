@@ -33,6 +33,10 @@
     <string name="protocol_error_pairing_code_invalid">pairing code rejected</string>
     <string name="protocol_error_extra_button_no_such_button">unknown button</string>
     <string name="protocol_error_media_button_failed">failed to dispatch media key</string>
+    <string name="protocol_error_unspecified">remote replied: unspecified error</string>
+    <string name="protocol_error_unauthorized">remote replied: unauthorized</string>
+    <string name="protocol_error_op_unsupported">operation not supported by remote</string>
+    <string name="protocol_error_response_invalid">unexpected response from remote</string>
 
     <!-- control sources -->
     <string name="control_source_not_loaded_accessibility">

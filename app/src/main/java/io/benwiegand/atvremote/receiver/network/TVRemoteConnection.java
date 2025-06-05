@@ -25,6 +25,7 @@ import java.util.UUID;
 import javax.net.ssl.SSLSocket;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.async.Sec;
 import io.benwiegand.atvremote.receiver.control.ControlScheme;
 import io.benwiegand.atvremote.receiver.control.ControlNotInitializedException;
 import io.benwiegand.atvremote.receiver.protocol.MalformedEventException;
@@ -35,6 +36,7 @@ import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
 import io.benwiegand.atvremote.receiver.protocol.json.ErrorDetails;
 import io.benwiegand.atvremote.receiver.protocol.json.ReceiverDeviceMeta;
 import io.benwiegand.atvremote.receiver.protocol.json.RemoteDeviceMeta;
+import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
 
 public class TVRemoteConnection implements Closeable {
     private static final String TAG = TVRemoteConnection.class.getSimpleName();
@@ -57,16 +59,21 @@ public class TVRemoteConnection implements Closeable {
     private final PairingManager pairingManager;
     private Runnable cancelPairingCallback = null;
     private PairingData pairingData = null;
+
+    private final EventStreamManager eventStreamManager;
+    private final Set<String> subscribedEventTypes = new HashSet<>();
+
     private final ControlScheme controlScheme;
 
     private final Object deathLock = new Object();
     private final Runnable onDisconnect;
     private boolean dead = false;
 
-    public TVRemoteConnection(Context context, UUID uuid, PairingManager pairingManager, SSLSocket socket, ControlScheme controlScheme, Runnable onDisconnect) {
+    public TVRemoteConnection(Context context, UUID uuid, PairingManager pairingManager, EventStreamManager eventStreamManager, SSLSocket socket, ControlScheme controlScheme, Runnable onDisconnect) {
         this.context = context;
         this.uuid = uuid;
         this.pairingManager = pairingManager;
+        this.eventStreamManager = eventStreamManager;
         this.socket = socket;
         this.controlScheme = controlScheme;
         this.onDisconnect = onDisconnect;
@@ -234,6 +241,38 @@ public class TVRemoteConnection implements Closeable {
         writer.sendLine(OP_ERR + " " + gson.toJson(e));
     }
 
+    private RemoteProtocolException parseError(String json) {
+        Log.e(TAG, "error response: " + json);
+        if (json == null)
+            return new RemoteProtocolException(R.string.protocol_error_unspecified, "remote gave no error details");
+
+        return gson.fromJson(json, ErrorDetails.class).toException();
+    }
+
+    Sec<String> sendOperation(String event) {
+        if (eventJuggler == null) throw new IllegalStateException("connection init not finished yet");
+        return eventJuggler.sendEvent(event)
+                .map(r -> {
+                    // parse errors
+                    int iSep = r.responseLine().indexOf(' ');
+                    String op, extra;
+                    if (iSep > 1) {
+                        op = r.responseLine().substring(0, iSep);
+                        extra = r.responseLine().substring(iSep + 1);
+                    } else {
+                        op = r.responseLine();
+                        extra = null;
+                    }
+
+                    return switch (op) {
+                        case OP_CONFIRM -> extra;
+                        case OP_ERR -> throw parseError(extra);
+                        case OP_UNSUPPORTED -> throw new RemoteProtocolException(R.string.protocol_error_op_unsupported, "operation not supported by remote");
+                        default -> throw new RemoteProtocolException(R.string.protocol_error_response_invalid, "unexpected response from remote");
+                    };
+                });
+    }
+
     @Override
     public void close() {
         Log.d(TAG, "close()");
@@ -251,6 +290,9 @@ public class TVRemoteConnection implements Closeable {
             if (writer != null) tryClose(writer);
         }
         if (cancelPairingCallback != null) pairingManager.cancelPairing(cancelPairingCallback);
+
+        for (String eventType : subscribedEventTypes)
+            eventStreamManager.unsubscribeFromStream(uuid, eventType);
 
         onDisconnect.run();
     }
@@ -335,6 +377,21 @@ public class TVRemoteConnection implements Closeable {
                         case EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS -> controlScheme.getActivityLauncherInput().launchActivity(LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
                         default -> throw new RemoteProtocolException(R.string.protocol_error_extra_button_no_such_button, "no such button: " + extra);
                     }
+                }),
+
+                new OperationDefinition(OP_EVENT_STREAM_SUBSCRIBE, extra -> {
+                    if (extra == null) throw new MalformedEventException("no event type specified");
+
+                    boolean subscribed = eventStreamManager.subscribeToStream(uuid, extra);
+                    if (!subscribed) throw new RemoteProtocolException("no such event stream is currently available");
+
+                    subscribedEventTypes.add(extra);
+                }),
+                new OperationDefinition(OP_EVENT_STREAM_UNSUBSCRIBE, extra -> {
+                    if (extra == null) throw new MalformedEventException("no event type specified");
+
+                    eventStreamManager.unsubscribeFromStream(uuid, extra);
+                    subscribedEventTypes.remove(extra);
                 }),
 
                 new OperationDefinition(OP_PING, () -> {}),
