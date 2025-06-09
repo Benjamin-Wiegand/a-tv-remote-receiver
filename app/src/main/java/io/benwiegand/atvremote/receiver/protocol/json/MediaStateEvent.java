@@ -2,6 +2,12 @@ package io.benwiegand.atvremote.receiver.protocol.json;
 
 public record MediaStateEvent(
         String id,
-        int state,
-        boolean playing
-) { }
+        Integer state,
+        Boolean playing,
+        Boolean paused
+) {
+    // no media
+    public MediaStateEvent(String id) {
+        this(id, null, null, null);
+    }
+}

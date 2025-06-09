@@ -5,5 +5,10 @@ public record MediaMetaEvent(
         String title,
         String subtitle,
         String sourceName,
-        long length
-) { }
+        Long length
+) {
+    // no media
+    public MediaMetaEvent(String id, String sourceName) {
+        this(id, null, null, sourceName, null);
+    }
+}
