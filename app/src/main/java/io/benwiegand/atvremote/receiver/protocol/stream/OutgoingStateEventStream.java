@@ -154,9 +154,9 @@ public class OutgoingStateEventStream implements OutgoingEventStream {
             synchronized (subscriptionMap) {
                 ChanneledReplacementLimiter<String, Void> existingLimiter = subscriptionMap.putIfAbsent(connectionUUID, limiter);
 
-                // soft failure, this is the remotes responsibility
+                // this behavior is leveraged by the remote now to redeliver the latest states
                 if (existingLimiter != null) {
-                    Log.w(TAG, "connection " + connectionUUID + " already subscribed to " + type);
+                    Log.v(TAG, "connection " + connectionUUID + " already subscribed to " + type);
                     limiter = existingLimiter;
                 }
 
