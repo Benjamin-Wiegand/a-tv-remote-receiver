@@ -104,6 +104,7 @@ public class OutgoingStateEventStream implements OutgoingEventStream {
     public boolean removeChannel(Object channel) {
         synchronized (channels) {
             if (!channels.remove(channel)) return false;
+            latestEventMap.remove(channel);
         }
 
         synchronized (subscriptionMap) {
