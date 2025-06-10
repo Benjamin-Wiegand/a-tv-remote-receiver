@@ -36,6 +36,7 @@ import io.benwiegand.atvremote.receiver.protocol.OperationDefinition;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
 import io.benwiegand.atvremote.receiver.protocol.json.ErrorDetails;
 import io.benwiegand.atvremote.receiver.stuff.ThrowingRunnable;
+import io.benwiegand.atvremote.receiver.ui.ErrorMessageException;
 import io.benwiegand.atvremote.receiver.util.ErrorUtil;
 
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
@@ -259,6 +260,7 @@ public class EventJuggler implements Closeable {
                 if (responseExtra != null) response += " " + responseExtra;
                 enqueueOutput(new QueuedResponse(response));
             } catch (Throwable t) {
+                if (!(t instanceof ErrorMessageException)) Log.e(TAG, "unexpected error while handling", t);
                 enqueueOutput(createErrorResponse(eventId, t));
                 if (definition.closeConnectionOnFailure())
                     enqueueOutput(new QueuedDisconnection());
