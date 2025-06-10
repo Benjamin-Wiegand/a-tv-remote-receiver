@@ -51,7 +51,7 @@ public class EventJuggler implements Closeable {
     private static final String TAG = EventJuggler.class.getSimpleName();
 
     private static final int BASE64_FLAGS = Base64.DEFAULT | Base64.NO_WRAP | Base64.NO_PADDING;
-    private static final long EVENT_TIMEOUT = 5000;
+    private static final long EVENT_TIMEOUT = 30000;
 
     private static final Gson gson = new Gson();
 
