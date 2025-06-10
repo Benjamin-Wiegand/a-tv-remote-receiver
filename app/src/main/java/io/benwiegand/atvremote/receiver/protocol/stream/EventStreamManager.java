@@ -52,15 +52,8 @@ public class EventStreamManager {
 
     public OutgoingStateEventStream getOrCreateStateEventStream(String eventType) {
         synchronized (eventStreamMap) {
-            if (eventStreamMap.containsKey(eventType)) {
-                OutgoingEventStream eventStream = eventStreamMap.get(eventType);
-                assert eventStream != null;
-                assert eventStream instanceof OutgoingStateEventStream;
-                return (OutgoingStateEventStream) eventStream;
-            }
-            OutgoingStateEventStream eventStream = new OutgoingStateEventStream(eventType, eventSender, retryTimer);
-            eventStreamMap.put(eventType, eventStream);
-            return eventStream;
+            return (OutgoingStateEventStream) eventStreamMap.computeIfAbsent(eventType,
+                    t -> new OutgoingStateEventStream(t, eventSender, retryTimer));
         }
     }
 
