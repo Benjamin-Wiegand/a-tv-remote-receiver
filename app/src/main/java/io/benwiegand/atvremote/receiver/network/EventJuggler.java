@@ -95,11 +95,11 @@ public class EventJuggler implements Closeable {
     }
 
     public void start(OperationDefinition[] operations) {
-        inThread.start();
-        outThread.start();
         for (OperationDefinition operation : operations) {
             operationMap.put(operation.operation(), operation);
         }
+        inThread.start();
+        outThread.start();
     }
 
     public void close() {
