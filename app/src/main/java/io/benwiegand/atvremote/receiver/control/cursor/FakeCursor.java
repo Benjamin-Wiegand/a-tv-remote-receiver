@@ -134,9 +134,9 @@ public abstract class FakeCursor implements CursorInput {
                 int width = overlayView.getWidth();
                 int height = overlayView.getHeight();
                 if (width != 0 && height != 0) {    // dimensions may be 0 for a brief period while showing
-                    if (cursorX > width) cursorX = width;
+                    if (cursorX >= width) cursorX = width - 1;
                     else if (cursorX < 0) cursorX = 0;
-                    if (cursorY > height) cursorY = height;
+                    if (cursorY >= height) cursorY = height - 1;
                     else if (cursorY < 0) cursorY = 0;
                 }
 
