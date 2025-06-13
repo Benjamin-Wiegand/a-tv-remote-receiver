@@ -142,7 +142,7 @@ public class AccessibilityInputService extends AccessibilityService {
     /**
      * @return the window currently with focus, the topmost window, or null if there are no windows
      */
-    public AccessibilityWindowInfo getFocusedWindow() {
+    private AccessibilityWindowInfo getFocusedWindow() {
         List<AccessibilityWindowInfo> windows = getWindows();
 
         if (windows.isEmpty()) {
@@ -237,15 +237,6 @@ public class AccessibilityInputService extends AccessibilityService {
                 performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
             } else {
                 fakeDpad(View.FOCUS_DOWN);
-
-                // todo: use this if installed as system
-//                Instrumentation i = new Instrumentation();
-//                i.sendKeyDownUpSync(KeyEvent.KEYCODE_DPAD_DOWN);
-
-                // todo
-//                InputMethod.AccessibilityInputConnection c;
-//                c.sendKeyEvent();
-
             }
         }
 
@@ -477,10 +468,6 @@ public class AccessibilityInputService extends AccessibilityService {
 
         public OverlayOutput getOverlayOutput() {
             return overlayOutput;
-        }
-
-        public AccessibilityInputService getService() {
-            return AccessibilityInputService.this;
         }
     }
 }
