@@ -9,8 +9,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -40,12 +38,10 @@ public class OutgoingStateEventStream implements OutgoingEventStream {
     private final String type;
 
     private final BiFunction<UUID, String, Sec<Void>> eventSender;
-    private final Timer retryTimer;
 
-    public OutgoingStateEventStream(String type, BiFunction<UUID, String, Sec<Void>> eventSender, Timer retryTimer) {
+    public OutgoingStateEventStream(String type, BiFunction<UUID, String, Sec<Void>> eventSender) {
         this.type = type;
         this.eventSender = eventSender;
-        this.retryTimer = retryTimer;
     }
 
     /**
@@ -129,16 +125,6 @@ public class OutgoingStateEventStream implements OutgoingEventStream {
             @Override
             public void onFailure(Object channel, String event, Throwable t, @Nullable Supplier<Sec<Void>> retry) {
                 Log.e(TAG, "event failed to send to connection '" + connectionUUID + "'", t);
-                if (retry == null) return;
-
-                Log.v(TAG, "scheduling retry");
-                retryTimer.schedule(new TimerTask() {
-                    @Override
-                    public void run() {
-                        if (!subscriptionMap.containsKey(connectionUUID)) return;
-                        retry.get();
-                    }
-                }, RETRY_DELAY);
             }
         });
     }

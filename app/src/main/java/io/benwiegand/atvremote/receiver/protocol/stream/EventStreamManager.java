@@ -3,7 +3,6 @@ package io.benwiegand.atvremote.receiver.protocol.stream;
 import android.util.Log;
 
 import java.util.Map;
-import java.util.Timer;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
@@ -15,7 +14,6 @@ public class EventStreamManager {
 
     private final Map<String, OutgoingEventStream> eventStreamMap = new ConcurrentHashMap<>();
 
-    private final Timer retryTimer = new Timer();
     private final BiFunction<UUID, String, Sec<Void>> eventSender;
 
     public EventStreamManager(BiFunction<UUID, String, Sec<Void>> eventSender) {
@@ -53,11 +51,11 @@ public class EventStreamManager {
     public OutgoingStateEventStream getOrCreateStateEventStream(String eventType) {
         synchronized (eventStreamMap) {
             return (OutgoingStateEventStream) eventStreamMap.computeIfAbsent(eventType,
-                    t -> new OutgoingStateEventStream(t, eventSender, retryTimer));
+                    t -> new OutgoingStateEventStream(t, eventSender));
         }
     }
 
     public void destroy() {
-        retryTimer.cancel();
+        // nothing here for now
     }
 }
