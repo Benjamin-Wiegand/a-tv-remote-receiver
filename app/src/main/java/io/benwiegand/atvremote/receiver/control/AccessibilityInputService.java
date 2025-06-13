@@ -9,29 +9,24 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.graphics.Point;
-import android.graphics.Rect;
-import android.hardware.display.DisplayManager;
 import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Display;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.view.accessibility.AccessibilityWindowInfo;
 
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Function;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.cursor.AccessibilityGestureCursor;
@@ -84,10 +79,6 @@ public class AccessibilityInputService extends AccessibilityService {
         broadcastBinder();
     }
 
-    public NotificationOverlay getNotificationOverlay() {
-        return notificationOverlay;
-    }
-
     @Override
     public void onInterrupt() {
         Log.d(TAG, "onInterrupt()");
@@ -127,105 +118,115 @@ public class AccessibilityInputService extends AccessibilityService {
         }
     }
 
-    private Display getDisplayCompat() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            return getDisplay();
-        } else {
-            DisplayManager dm = getSystemService(DisplayManager.class);
-            return dm.getDisplay(Display.DEFAULT_DISPLAY);
+    /**
+     * traverses children until criteria is met
+     * @param node node to start at
+     * @param criteria function, provided with the node, should return true if accepted
+     * @return first node to match the criteria, or null if none do
+     */
+    private AccessibilityNodeInfo traverseNodeChildren(AccessibilityNodeInfo node, Function<AccessibilityNodeInfo, Boolean> criteria) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            AccessibilityNodeInfo childNode = node.getChild(i);
+
+            if (criteria.apply(childNode)) {
+                return childNode;
+            }
+
+            AccessibilityNodeInfo matchInChild = traverseNodeChildren(node, criteria);
+            if (matchInChild != null) return matchInChild;
         }
+
+        return null;
     }
 
-    private Point getResolution() {
-        Point resolution = new Point();
-        getDisplayCompat().getRealSize(resolution);
-        return resolution;
-    }
+    /**
+     * @return the window currently with focus, the topmost window, or null if there are no windows
+     */
+    public AccessibilityWindowInfo getFocusedWindow() {
+        List<AccessibilityWindowInfo> windows = getWindows();
 
-    private AccessibilityNodeInfo getFocusedNode() {
-        AccessibilityNodeInfo root = getRootInActiveWindow();
-        if (root == null) {
-            Log.w(TAG, "window root is null!!!");
+        if (windows.isEmpty()) {
+            Log.w(TAG, "no windows!");
             return null;
         }
-        AccessibilityNodeInfo node = root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
-        if (node == null) node = root.findFocus(AccessibilityNodeInfo.FOCUS_ACCESSIBILITY);
 
-        return node;
+        for (AccessibilityWindowInfo window : windows) {
+            if (window.isFocused()) return window;
+        }
+
+        Log.d(TAG, "no focused window in stack, using topmost window");
+        return windows.get(0);
     }
 
+    /**
+     * @return the currently focused window root, or null if none
+     */
+    private AccessibilityNodeInfo getFocusedWindowRoot() {
+        AccessibilityNodeInfo root = getRootInActiveWindow();
+        if (root != null) return root;
+
+        Log.v(TAG, "getRootInActiveWindow() returned null");
+        AccessibilityWindowInfo window = getFocusedWindow();
+        if (window == null) return null;
+
+        return window.getRoot();
+    }
+
+    /**
+     * @return the currently focused node, or null if none
+     */
+    private AccessibilityNodeInfo getFocusedNode() {
+        AccessibilityNodeInfo root = getFocusedWindowRoot();
+        if (root == null) return null;
+
+        return root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+    }
+
+    /**
+     * traverses the children of the currently focused window root until it finds a focusable node
+     * and then returns it
+     * @return first focusable node encountered, or null if none
+     */
+    private AccessibilityNodeInfo findFirstFocusableNode() {
+        AccessibilityNodeInfo root = getFocusedWindowRoot();
+        if (root == null) return null;
+
+        return traverseNodeChildren(root, AccessibilityNodeInfo::isFocusable);
+    }
+
+    /**
+     * tries to fake the behavior of a dpad using accessibility nodes.
+     * finds the focused node and searches in the given direction.
+     * if there is no node in that direction, it focuses any focusable child node it can find.
+     * if there is no focused node, it finds the first focusable node and focuses that.
+     * if that too fails, nothing happens.
+     * @param direction the direction, using constants like View.FOCUS_[direction]
+     */
     private void fakeDpad(int direction) {
-        // todo: this shit sucks
+        // this still sucks, but less now
+        Log.v(TAG, "faking dpad in direction " + direction);
 
         AccessibilityNodeInfo node = getFocusedNode();
-        if (node == null) return;//todo: get first focusable
-
-        Log.i(TAG, "faking dpad in direction " + direction);
         AccessibilityNodeInfo newNode;
-//        if (direction == View.FOCUS_LEFT || direction == View.FOCUS_RIGHT)
-//            newNode = traverseHorizontal(node, direction == View.FOCUS_LEFT);
-//        else
-            newNode = node.focusSearch(direction);      // todo: traverse all children fallback
-        if (newNode == null) return;
-
-        Log.i(TAG, "found node");
-        newNode.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
-
-    }
-
-    private static final int TRAVERSE_X_DISTANCE_THRESHOLD = 5;
-    private AccessibilityNodeInfo traverseHorizontal(AccessibilityNodeInfo node, boolean left) {
-        AccessibilityNodeInfo parent = node.getParent();
-        if (parent == null) return null;
-
-        Rect nodeBounds = new Rect();
-        node.getBoundsInScreen(nodeBounds);
-
-        // rank nodes by distance on x/y
-        record NodeRanking(AccessibilityNodeInfo node, int distanceX, int distanceY) {}
-        List<NodeRanking> rankings = new LinkedList<>();
-        Rect siblingBounds = new Rect();
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            AccessibilityNodeInfo sibling = parent.getChild(i);
-            if (sibling == node) continue;
-            sibling.getBoundsInScreen(siblingBounds);
-
-            int distanceX = left ? nodeBounds.left - siblingBounds.right : (siblingBounds.left - nodeBounds.right);
-            Log.i(TAG, "dx:" + distanceX);
-            if (distanceX < 0) continue;
-
-            int distanceY = Math.abs(nodeBounds.centerY() - siblingBounds.centerY());
-
-            rankings.add(new NodeRanking(sibling, distanceX, distanceY));
+        if (node == null) {
+            Log.v(TAG, "no focused node, finding one");
+            newNode = findFirstFocusableNode();
+        } else {
+            newNode = node.focusSearch(direction);
+            if (newNode == null) {
+                Log.i(TAG, "search returned no node, checking children");
+                newNode = traverseNodeChildren(node, AccessibilityNodeInfo::isFocusable);
+            }
         }
 
-        Log.i(TAG, "Found " + rankings.size() + " nodes in direction");
-
-        // search parent if no nodes in direction
-        if (rankings.isEmpty()) return traverseHorizontal(parent, left);
-
-        // rank nodes by x axis first
-        rankings.sort(Comparator.comparingInt(NodeRanking::distanceX));
-
-        // eliminate nodes outside of a certain threshold from the first node
-        NodeRanking closestX = rankings.remove(0);
-        List<NodeRanking> newRankings = new LinkedList<>(Collections.singletonList(closestX));
-        while (!rankings.isEmpty()) {
-            NodeRanking ranking = rankings.remove(0);
-            if (closestX.distanceX() >= ranking.distanceX() - TRAVERSE_X_DISTANCE_THRESHOLD) break;
-            newRankings.add(ranking);
+        if (newNode == null) {
+            Log.i(TAG, "no node found");
+            return;
         }
 
-        Log.i(TAG, "trimmed to " + newRankings.size() + " candidates");
-
-        rankings.clear();
-        rankings = newRankings;
-
-        // sort by distance y to get the closest node vertically
-        rankings.sort(Comparator.comparingInt(NodeRanking::distanceY));
-        assert !rankings.isEmpty();
-
-        return rankings.remove(0).node();
+        if (!newNode.performAction(AccessibilityNodeInfo.ACTION_FOCUS)) {
+            Log.w(TAG, "focus action failed");
+        }
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
