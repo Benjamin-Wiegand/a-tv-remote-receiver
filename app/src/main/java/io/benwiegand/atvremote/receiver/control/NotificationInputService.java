@@ -34,6 +34,7 @@ import android.os.IBinder;
 import android.os.Looper;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
+import android.util.Pair;
 import android.view.KeyEvent;
 
 import androidx.annotation.Nullable;
@@ -43,6 +44,7 @@ import com.google.gson.Gson;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -283,6 +285,7 @@ public class NotificationInputService extends NotificationListenerService {
 
             List<UUID> newActiveSessionRanking = new ArrayList<>(mediaControllers.size());
             Set<UUID> oldKeys = new HashSet<>(activeSessionMap.keySet());
+            List<Pair<UUID, MediaController>> newSessions = new LinkedList<>();
 
             for (MediaController session : mediaControllers) {
                 UUID uuid = tokenAnonymizer.getUUIDOrRegister(session.getSessionToken());
@@ -290,17 +293,26 @@ public class NotificationInputService extends NotificationListenerService {
                 activeSessionMap.put(uuid, session);
                 newActiveSessionRanking.add(uuid);
 
-                if (isNew) {
-                    Log.d(TAG, "session added: " + uuid + " " + session.getPackageName());
-                    mediaMetadataEventStream.addChannel(uuid);
-                    mediaPositionEventStream.addChannel(uuid);
-                    mediaStateEventStream.addChannel(uuid);
-                    setupMediaControllerCallback(uuid, session);
-                }
+                if (isNew)
+                    newSessions.add(Pair.create(uuid, session));
 
             }
 
+            // new active session list must be sent before any updates
+            Log.i(TAG, "sending active sessions ranking: " + newActiveSessionRanking);
+            sendMediaSessionsUpdateLocked(newActiveSessionRanking);
             activeSessionRanking = newActiveSessionRanking;
+
+            for (Pair<UUID, MediaController> newSession: newSessions) {
+                UUID uuid = newSession.first;
+                MediaController session = newSession.second;
+
+                Log.d(TAG, "session added: " + uuid + " " + session.getPackageName());
+                mediaMetadataEventStream.addChannel(uuid);
+                mediaPositionEventStream.addChannel(uuid);
+                mediaStateEventStream.addChannel(uuid);
+                setupMediaControllerCallback(uuid, session);
+            }
 
             for (UUID uuid : oldKeys) {
                 MediaController oldSession = activeSessionMap.remove(uuid);
@@ -313,7 +325,6 @@ public class NotificationInputService extends NotificationListenerService {
                 mediaStateEventStream.removeChannel(uuid);
             }
 
-            sendMediaSessionsUpdateLocked(newActiveSessionRanking);
         }
     }
 
