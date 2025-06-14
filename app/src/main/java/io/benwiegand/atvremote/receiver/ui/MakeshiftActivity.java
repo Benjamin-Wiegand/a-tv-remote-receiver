@@ -44,6 +44,10 @@ public abstract class MakeshiftActivity {
     }
 
     protected void runOnUiThread(Runnable run) {
+        if (handler.getLooper() == Looper.myLooper()) {
+            run.run();
+            return;
+        }
         handler.post(run);
     }
 
