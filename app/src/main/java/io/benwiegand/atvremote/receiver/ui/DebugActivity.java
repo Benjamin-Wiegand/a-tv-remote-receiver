@@ -71,7 +71,7 @@ public class DebugActivity extends AppCompatActivity {
 
         findViewById(R.id.show_pairing_dialog_button).setOnClickListener(v -> {
             if (binder == null) return;
-            binder.showPairingDialog();
+            binder.showTestPairingDialog();
         });
 
         findViewById(R.id.start_server_button).setOnClickListener(v -> {
