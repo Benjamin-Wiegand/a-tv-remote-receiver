@@ -23,6 +23,7 @@ import android.view.accessibility.AccessibilityWindowInfo;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
@@ -384,6 +385,25 @@ public class AccessibilityInputService extends AccessibilityService {
             debugOverlay.drawRect("activewindow", rect, 0xFF0000FF);
         } else {
             debugOverlay.removeRect("activewindow");
+        }
+
+        List<AccessibilityWindowInfo> windows = getWindows();
+        if (!windows.isEmpty()) {
+            List<Rect> rects = new LinkedList<>();
+
+            for (AccessibilityWindowInfo window : windows) {
+
+                Log.d(TAG, "win: " + window);
+                AccessibilityNodeInfo firstFocusable = findFirstFocusableNode(window);
+
+                Rect tmpRect = new Rect();
+                firstFocusable.getBoundsInScreen(tmpRect);
+                rects.add(tmpRect);
+            }
+
+            debugOverlay.drawRectGroup("firstFocusables", rects, 0xFFFF00FF);
+        } else {
+            debugOverlay.removeRect("firstFocusables");
         }
 
         if (newNode == null) {
