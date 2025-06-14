@@ -9,6 +9,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
+import android.graphics.Rect;
 import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
@@ -37,6 +38,7 @@ import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
+import io.benwiegand.atvremote.receiver.ui.DebugOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
@@ -58,6 +60,7 @@ public class AccessibilityInputService extends AccessibilityService {
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
+    private DebugOverlay debugOverlay = null;
 
 
     @SuppressLint("InlinedApi")
@@ -75,6 +78,9 @@ public class AccessibilityInputService extends AccessibilityService {
         cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
+
+        debugOverlay = new DebugOverlay(this);
+        debugOverlay.start();
 
         broadcastBinder();
     }
@@ -217,6 +223,31 @@ public class AccessibilityInputService extends AccessibilityService {
                 Log.i(TAG, "search returned no node, checking children");
                 newNode = traverseNodeChildren(node, AccessibilityNodeInfo::isFocusable);
             }
+        }
+
+        // debug rectangles
+        Rect rect = new Rect();
+        if (node != null) {
+            node.getBoundsInScreen(rect);
+            debugOverlay.drawRect("oldfocus", rect, 0xFFFFAA00);
+        } else {
+            debugOverlay.removeRect("oldfocus");
+        }
+
+        rect.setEmpty();
+        if (newNode != null) {
+            newNode.getBoundsInScreen(rect);
+            debugOverlay.drawRect("newfocus", rect, 0xFF00FF00);
+        } else {
+            debugOverlay.removeRect("newfocus");
+        }
+
+        rect.setEmpty();
+        if (node != null) {
+            node.getWindow().getBoundsInScreen(rect);
+            debugOverlay.drawRect("activewindow", rect, 0xFF0000FF);
+        } else {
+            debugOverlay.removeRect("activewindow");
         }
 
         if (newNode == null) {
