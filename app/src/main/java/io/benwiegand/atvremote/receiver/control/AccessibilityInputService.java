@@ -62,6 +62,9 @@ public class AccessibilityInputService extends AccessibilityService {
     private NotificationOverlay notificationOverlay = null;
     private DebugOverlay debugOverlay = null;
 
+    private boolean softKeyboardOpen = false;
+    private AccessibilityNodeInfo softKeyboardFocusedNode = null;
+
 
     @SuppressLint("InlinedApi")
     @Override
@@ -97,9 +100,69 @@ public class AccessibilityInputService extends AccessibilityService {
         return super.onUnbind(intent);
     }
 
+    private void checkSoftKeyboard(AccessibilityEvent event) {
+        // optional filter
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if ((event.getWindowChanges() & (AccessibilityEvent.WINDOWS_CHANGE_ADDED | AccessibilityEvent.WINDOWS_CHANGE_REMOVED)) == 0) {
+                Log.d(TAG, "filtered");
+                return;
+            }
+        }
+
+        AccessibilityWindowInfo softKeyboardWindow = null;
+        List<AccessibilityWindowInfo> windows = getWindows();
+        for (AccessibilityWindowInfo window : windows) {
+            if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
+                softKeyboardWindow = window;
+                break;
+            }
+        }
+
+        boolean currentlySoftKeyboardOpen = softKeyboardWindow != null;
+        if (currentlySoftKeyboardOpen == softKeyboardOpen) {
+            Log.d(TAG, "same");
+            return;
+        }
+        softKeyboardOpen = currentlySoftKeyboardOpen;
+
+        if (softKeyboardOpen) {
+            // set things up so fakeDpad() can use the keyboard
+            Log.v(TAG, "soft keyboard opened");
+
+            AccessibilityNodeInfo node = getFocusedNode(softKeyboardWindow);
+            if (node == null) {
+                // try to find and focus a node
+                node = findFirstFocusableNode(softKeyboardWindow);
+                if (node == null) {
+                    Log.e(TAG, "no focusable node found in keyboard overlay, it will not be usable!");
+                    return;
+                }
+                node = tryFocusNodeOrChild(node);
+                if (node == null) {
+                    Log.e(TAG, "failed to focus node in keyboard overlay, it will not be usable!");
+                    return;
+                }
+            }
+
+            Rect rect = new Rect();
+            node.getBoundsInScreen(rect);
+            debugOverlay.drawRect("keyboardnode", rect, 0xFFFF0000);
+
+            softKeyboardFocusedNode = node;
+        } else {
+            Log.v(TAG, "soft keyboard closed");
+            debugOverlay.removeRect("keyboardnode");
+        }
+    }
+
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
         Log.d(TAG, "onAccessibilityEvent()");
+
+        if (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
+            Log.d(TAG, "windows changed event");
+            checkSoftKeyboard(event);
+        }
     }
 
     private void broadcastBinder() {
@@ -131,6 +194,8 @@ public class AccessibilityInputService extends AccessibilityService {
      * @return first node to match the criteria, or null if none do
      */
     private AccessibilityNodeInfo traverseNodeChildren(AccessibilityNodeInfo node, Function<AccessibilityNodeInfo, Boolean> criteria) {
+        if (node == null) return null;
+
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo childNode = node.getChild(i);
 
@@ -179,6 +244,7 @@ public class AccessibilityInputService extends AccessibilityService {
     }
 
     /**
+     * gets the focused node in the currently active window
      * @return the currently focused node, or null if none
      */
     private AccessibilityNodeInfo getFocusedNode() {
@@ -189,15 +255,82 @@ public class AccessibilityInputService extends AccessibilityService {
     }
 
     /**
-     * traverses the children of the currently focused window root until it finds a focusable node
+     * gets the focused node in the provided window
+     * @return the currently focused node, or null if none
+     */
+    private AccessibilityNodeInfo getFocusedNode(AccessibilityWindowInfo window) {
+        AccessibilityNodeInfo root = window.getRoot();
+        if (root == null) return null;
+
+        return root.findFocus(AccessibilityNodeInfo.FOCUS_INPUT);
+    }
+
+    /**
+     * like getFocusedNode() but gets the focused node on the soft keyboard first if it's open
+     * @return the currently focused node, or null if none
+     */
+    private AccessibilityNodeInfo getFocusedNodeIncludingKeyboard() {
+        return isSoftKeyboardUsable() ? softKeyboardFocusedNode : getFocusedNode();
+    }
+
+    /**
+     * traverses the children of the provided node until it finds a focusable node
+     * and then returns it
+     * @return first focusable node encountered, or null if none
+     */
+    private AccessibilityNodeInfo findFirstFocusableChild(AccessibilityNodeInfo node) {
+        if (node == null) return null;
+        return traverseNodeChildren(node, AccessibilityNodeInfo::isFocusable);
+    }
+
+    /**
+     * traverses the children of the currently focused window until it finds a focusable node
      * and then returns it
      * @return first focusable node encountered, or null if none
      */
     private AccessibilityNodeInfo findFirstFocusableNode() {
         AccessibilityNodeInfo root = getFocusedWindowRoot();
         if (root == null) return null;
+        if (root.isFocusable()) return root;
+        return findFirstFocusableChild(root);
+    }
 
-        return traverseNodeChildren(root, AccessibilityNodeInfo::isFocusable);
+    /**
+     * traverses the children of the currently focused window until it finds a focusable node
+     * and then returns it
+     * @return first focusable node encountered, or null if none
+     */
+    private AccessibilityNodeInfo findFirstFocusableNode(AccessibilityWindowInfo window) {
+        if (window == null) return null;
+        AccessibilityNodeInfo root = window.getRoot();
+        if (root == null) return null;
+        if (root.isFocusable()) return root;
+        return findFirstFocusableChild(root);
+    }
+
+    /**
+     * tries to focus the provided node
+     * @param node the node
+     * @return true if the focus event returned true, false if not
+     */
+    private boolean tryFocusNode(AccessibilityNodeInfo node) {
+        if (node == null) return false;
+        return node.isFocusable() && node.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+    }
+
+    /**
+     * tries to focus the provided node. if that fails, it traverses all children trying to focus
+     * them until one is focused or there are no more children.
+     * @param node the node
+     * @return the node that was focused, or null if none
+     */
+    private AccessibilityNodeInfo tryFocusNodeOrChild(AccessibilityNodeInfo node) {
+        if (tryFocusNode(node)) return node;
+        return traverseNodeChildren(node, this::tryFocusNode);
+    }
+
+    private boolean isSoftKeyboardUsable() {
+        return softKeyboardOpen && softKeyboardFocusedNode != null;
     }
 
     /**
@@ -212,7 +345,10 @@ public class AccessibilityInputService extends AccessibilityService {
         // this still sucks, but less now
         Log.v(TAG, "faking dpad in direction " + direction);
 
-        AccessibilityNodeInfo node = getFocusedNode();
+        // get the keyboard node if it's open
+        boolean usingKeyboard = isSoftKeyboardUsable();
+        AccessibilityNodeInfo node = usingKeyboard ? getFocusedNodeIncludingKeyboard() : getFocusedNode();
+
         AccessibilityNodeInfo newNode;
         if (node == null) {
             Log.v(TAG, "no focused node, finding one");
@@ -221,7 +357,7 @@ public class AccessibilityInputService extends AccessibilityService {
             newNode = node.focusSearch(direction);
             if (newNode == null) {
                 Log.i(TAG, "search returned no node, checking children");
-                newNode = traverseNodeChildren(node, AccessibilityNodeInfo::isFocusable);
+                newNode = findFirstFocusableChild(node);
             }
         }
 
@@ -255,7 +391,9 @@ public class AccessibilityInputService extends AccessibilityService {
             return;
         }
 
-        if (!newNode.performAction(AccessibilityNodeInfo.ACTION_FOCUS)) {
+        if (tryFocusNode(newNode)) {
+            if (usingKeyboard) softKeyboardFocusedNode = newNode;
+        } else {
             Log.w(TAG, "focus action failed");
         }
     }
@@ -303,14 +441,14 @@ public class AccessibilityInputService extends AccessibilityService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
             } else {
-                AccessibilityNodeInfo node = getFocusedNode();
+                AccessibilityNodeInfo node = getFocusedNodeIncludingKeyboard();
                 if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
             }
         }
 
         @Override
         public void dpadLongPress() {
-            AccessibilityNodeInfo node = getFocusedNode();
+            AccessibilityNodeInfo node = getFocusedNodeIncludingKeyboard();
             if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
         }
 
