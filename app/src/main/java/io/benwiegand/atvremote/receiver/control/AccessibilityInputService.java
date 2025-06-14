@@ -132,7 +132,7 @@ public class AccessibilityInputService extends AccessibilityService {
                 return childNode;
             }
 
-            AccessibilityNodeInfo matchInChild = traverseNodeChildren(node, criteria);
+            AccessibilityNodeInfo matchInChild = traverseNodeChildren(childNode, criteria);
             if (matchInChild != null) return matchInChild;
         }
 
