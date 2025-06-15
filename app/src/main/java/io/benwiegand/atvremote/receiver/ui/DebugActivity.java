@@ -91,6 +91,11 @@ public class DebugActivity extends AppCompatActivity {
             }, 0);
         });
 
+        findViewById(R.id.show_debug_overlay).setOnClickListener(v -> {
+            if (binder == null) return;
+            binder.showDebugOverlay();
+        });
+
         findViewById(R.id.accessibility_settings_button).setOnClickListener(v ->
                 startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
 

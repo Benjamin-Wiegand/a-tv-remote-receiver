@@ -23,8 +23,9 @@ import android.view.accessibility.AccessibilityWindowInfo;
 import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.nio.charset.StandardCharsets;
-import java.util.LinkedList;
+import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
@@ -98,9 +99,6 @@ public class AccessibilityInputService extends AccessibilityService {
         cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
-
-        debugOverlay = new DebugOverlay(this);
-        debugOverlay.start();
 
         broadcastBinder();
     }
@@ -178,14 +176,12 @@ public class AccessibilityInputService extends AccessibilityService {
                 }
             }
 
-            Rect rect = new Rect();
-            node.getBoundsInScreen(rect);
-            debugOverlay.drawRect(DEBUG_OVERLAY_KEYBOARD_DETECTION, rect, DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR);
+            debugDrawRect(DEBUG_OVERLAY_KEYBOARD_DETECTION, node, DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR);
 
             softKeyboardFocusedNode = node;
         } else {
             Log.v(TAG, "soft keyboard closed");
-            debugOverlay.removeRect(DEBUG_OVERLAY_KEYBOARD_DETECTION);
+            debugRemoveRect(DEBUG_OVERLAY_KEYBOARD_DETECTION);
         }
     }
 
@@ -197,6 +193,60 @@ public class AccessibilityInputService extends AccessibilityService {
             Log.d(TAG, "windows changed event");
             checkSoftKeyboard(event);
         }
+    }
+
+    private boolean isDebugOverlayEnabled() {
+        return debugOverlay != null;
+    }
+
+    private void debugDrawRect(String key, Rect rect, int color) {
+        if (!isDebugOverlayEnabled()) return;
+        debugOverlay.drawRect(key, rect, color);
+    }
+
+    private void debugDrawRect(String key, AccessibilityNodeInfo node, int color) {
+        if (!isDebugOverlayEnabled()) return;
+        if (node == null) {
+            debugRemoveRect(key);
+            return;
+        }
+        Rect rect = new Rect();
+        node.getBoundsInScreen(rect);
+        debugDrawRect(key, rect, color);
+    }
+
+    private void debugDrawRect(String key, AccessibilityWindowInfo window, int color) {
+        if (!isDebugOverlayEnabled()) return;
+        if (window == null) {
+            debugRemoveRect(key);
+            return;
+        }
+        Rect rect = new Rect();
+        window.getBoundsInScreen(rect);
+        debugDrawRect(key, rect, color);
+    }
+
+    private void debugDrawRectGroup(String key, List<Rect> rects, int color) {
+        if (!isDebugOverlayEnabled()) return;
+        debugOverlay.drawRectGroup(key, rects, color);
+    }
+
+    private void debugDrawNodeRectGroup(String key, AccessibilityNodeInfo[] windows, int color) {
+        if (!isDebugOverlayEnabled()) return;
+        Rect[] rects = Arrays.stream(windows)
+                .map(node -> {
+                    Rect rect = new Rect();
+                    node.getBoundsInScreen(rect);
+                    return rect;
+                })
+                .toArray(Rect[]::new);
+
+        debugDrawRectGroup(key, List.of(rects), color);
+    }
+
+    private void debugRemoveRect(String key) {
+        if (!isDebugOverlayEnabled()) return;
+        debugOverlay.removeRect(key);
     }
 
     /**
@@ -374,47 +424,21 @@ public class AccessibilityInputService extends AccessibilityService {
         }
 
         // debug rectangles
-        Rect rect = new Rect();
-        if (node != null) {
-            node.getBoundsInScreen(rect);
-            debugOverlay.drawRect(DEBUG_OVERLAY_OLD_FOCUS, rect, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
-        } else {
-            debugOverlay.removeRect(DEBUG_OVERLAY_OLD_FOCUS);
-        }
+        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, node, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
+        debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newNode, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
+        if (node != null) debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, node.getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
+        if (isDebugOverlayEnabled()) {
+            // first focusable node in every window
+            AccessibilityNodeInfo[] nodes = getWindows().stream()
+                    .map(window -> {
+                        AccessibilityNodeInfo root = window.getRoot();
+                        if (root == null) return null;
+                        return findFirstFocusableNode(window);
+                    })
+                    .filter(Objects::nonNull)
+                    .toArray(AccessibilityNodeInfo[]::new);
 
-        rect.setEmpty();
-        if (newNode != null) {
-            newNode.getBoundsInScreen(rect);
-            debugOverlay.drawRect(DEBUG_OVERLAY_NEW_FOCUS, rect, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
-        } else {
-            debugOverlay.removeRect(DEBUG_OVERLAY_NEW_FOCUS);
-        }
-
-        rect.setEmpty();
-        if (node != null) {
-            node.getWindow().getBoundsInScreen(rect);
-            debugOverlay.drawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, rect, DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
-        } else {
-            debugOverlay.removeRect(DEBUG_OVERLAY_ACTIVE_WINDOW);
-        }
-
-        List<AccessibilityWindowInfo> windows = getWindows();
-        if (!windows.isEmpty()) {
-            List<Rect> rects = new LinkedList<>();
-
-            for (AccessibilityWindowInfo window : windows) {
-
-                Log.d(TAG, "win: " + window);
-                AccessibilityNodeInfo firstFocusable = findFirstFocusableNode(window);
-
-                Rect tmpRect = new Rect();
-                firstFocusable.getBoundsInScreen(tmpRect);
-                rects.add(tmpRect);
-            }
-
-            debugOverlay.drawRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, rects, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
-        } else {
-            debugOverlay.removeRect(DEBUG_OVERLAY_FOCUSABLE_WINDOWS);
+            debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
         }
 
         if (newNode == null) {
@@ -644,6 +668,12 @@ public class AccessibilityInputService extends AccessibilityService {
         public void showTestNotification() {
             notificationOverlay.displayNotification("Test notification", "this is a test", R.drawable.accepted);
 
+        }
+
+        public void showDebugOverlay() {
+            if (debugOverlay != null) return;
+            debugOverlay = new DebugOverlay(AccessibilityInputService.this);
+            debugOverlay.start();
         }
 
         public DirectionalPadInput getDirectionalPadInput() {

@@ -43,6 +43,12 @@
             android:text="start server" />
 
         <Button
+            android:id="@+id/show_debug_overlay"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="show debug overlay" />
+
+        <Button
             android:id="@+id/accessibility_settings_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
