@@ -81,7 +81,7 @@ public class AccessibilityInputService extends AccessibilityService {
     private DebugOverlay debugOverlay = null;
 
     private boolean softKeyboardOpen = false;
-    private AccessibilityNodeInfo softKeyboardFocusedNode = null;
+    private AccessibilityWindowInfo softKeyboardWindow = null;
 
 
     @SuppressLint("InlinedApi")
@@ -144,41 +144,29 @@ public class AccessibilityInputService extends AccessibilityService {
                 return;
         }
 
-        AccessibilityWindowInfo softKeyboardWindow = null;
+        AccessibilityWindowInfo currentSoftKeyboardWindow = null;
         List<AccessibilityWindowInfo> windows = getWindows();
         for (AccessibilityWindowInfo window : windows) {
             if (window.getType() == AccessibilityWindowInfo.TYPE_INPUT_METHOD) {
-                softKeyboardWindow = window;
+                currentSoftKeyboardWindow = window;
                 break;
             }
         }
 
-        boolean currentlySoftKeyboardOpen = softKeyboardWindow != null;
+        boolean currentlySoftKeyboardOpen = currentSoftKeyboardWindow != null;
         if (currentlySoftKeyboardOpen == softKeyboardOpen) return;
         softKeyboardOpen = currentlySoftKeyboardOpen;
+        softKeyboardWindow = currentSoftKeyboardWindow;
 
         if (softKeyboardOpen) {
             // set things up so fakeDpad() can use the keyboard
             Log.v(TAG, "soft keyboard opened");
 
-            AccessibilityNodeInfo node = findFocusedNode(softKeyboardWindow);
-            if (node == null) {
-                // try to find and focus a node
-                node = findFirstFocusableNode(softKeyboardWindow);
-                if (node == null) {
-                    Log.e(TAG, "no focusable node found in keyboard overlay, it will not be usable!");
-                    return;
-                }
-                node = tryFocusNodeOrChild(node);
-                if (node == null) {
-                    Log.e(TAG, "failed to focus node in keyboard overlay, it will not be usable!");
-                    return;
-                }
+            // debug box to show keyboard recognition
+            if (isDebugOverlayEnabled()) {
+                AccessibilityNodeInfo node = findFirstFocusableNode(softKeyboardWindow);
+                debugDrawRect(DEBUG_OVERLAY_KEYBOARD_DETECTION, node, DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR);
             }
-
-            debugDrawRect(DEBUG_OVERLAY_KEYBOARD_DETECTION, node, DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR);
-
-            softKeyboardFocusedNode = node;
         } else {
             Log.v(TAG, "soft keyboard closed");
             debugRemoveRect(DEBUG_OVERLAY_KEYBOARD_DETECTION);
@@ -332,7 +320,8 @@ public class AccessibilityInputService extends AccessibilityService {
      * @return the currently focused node, or null if none
      */
     private AccessibilityNodeInfo findFocusedNodeIncludingKeyboard() {
-        return isSoftKeyboardUsable() ? softKeyboardFocusedNode : findFocusedNode();
+        if (isSoftKeyboardUsable()) return findFocusedNode(softKeyboardWindow);
+        return findFocusedNode();
     }
 
     /**
@@ -380,19 +369,8 @@ public class AccessibilityInputService extends AccessibilityService {
         return node.isFocusable() && node.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
     }
 
-    /**
-     * tries to focus the provided node. if that fails, it traverses all children trying to focus
-     * them until one is focused or there are no more children.
-     * @param node the node
-     * @return the node that was focused, or null if none
-     */
-    private AccessibilityNodeInfo tryFocusNodeOrChild(AccessibilityNodeInfo node) {
-        if (tryFocusNode(node)) return node;
-        return traverseNodeChildren(node, this::tryFocusNode);
-    }
-
     private boolean isSoftKeyboardUsable() {
-        return softKeyboardOpen && softKeyboardFocusedNode != null;
+        return softKeyboardOpen && softKeyboardWindow != null;
     }
 
     /**
@@ -408,8 +386,7 @@ public class AccessibilityInputService extends AccessibilityService {
         Log.v(TAG, "faking dpad in direction " + direction);
 
         // get the keyboard node if it's open
-        boolean usingKeyboard = isSoftKeyboardUsable();
-        AccessibilityNodeInfo node = usingKeyboard ? findFocusedNodeIncludingKeyboard() : findFocusedNode();
+        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
 
         AccessibilityNodeInfo newNode;
         if (node == null) {
@@ -446,11 +423,8 @@ public class AccessibilityInputService extends AccessibilityService {
             return;
         }
 
-        if (tryFocusNode(newNode)) {
-            if (usingKeyboard) softKeyboardFocusedNode = newNode;
-        } else {
+        if (!tryFocusNode(newNode))
             Log.w(TAG, "focus action failed");
-        }
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
