@@ -57,16 +57,14 @@ public class DebugActivity extends AppCompatActivity {
             Log.i(TAG, "binder request broadcast sent");
         });
 
+        findViewById(R.id.show_debug_overlay).setOnClickListener(v -> {
+            if (binder == null) return;
+            binder.showDebugOverlay();
+        });
+
         findViewById(R.id.show_test_notif_button).setOnClickListener(v -> {
             if (binder == null) return;
             binder.showTestNotification();
-        });
-
-        findViewById(R.id.show_cursor_button).setOnClickListener(v -> {
-            if (binder == null) return;
-            // todo fixme
-//            binder.showCursor();
-//            binder.cursorMove(420, 420);
         });
 
         findViewById(R.id.show_pairing_dialog_button).setOnClickListener(v -> {
@@ -89,11 +87,6 @@ public class DebugActivity extends AppCompatActivity {
                     Log.i(TAG, "service disconnected: " + name);
                 }
             }, 0);
-        });
-
-        findViewById(R.id.show_debug_overlay).setOnClickListener(v -> {
-            if (binder == null) return;
-            binder.showDebugOverlay();
         });
 
         findViewById(R.id.accessibility_settings_button).setOnClickListener(v ->

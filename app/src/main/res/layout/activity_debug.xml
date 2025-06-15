@@ -19,12 +19,6 @@
             android:text="try bind" />
 
         <Button
-            android:id="@+id/show_cursor_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="show fake cursor" />
-
-        <Button
             android:id="@+id/show_pairing_dialog_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
@@ -37,16 +31,16 @@
             android:text="show test notification" />
 
         <Button
-            android:id="@+id/start_server_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="start server" />
-
-        <Button
             android:id="@+id/show_debug_overlay"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="show debug overlay" />
+
+        <Button
+            android:id="@+id/start_server_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="start server" />
 
         <Button
             android:id="@+id/accessibility_settings_button"
