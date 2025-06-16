@@ -4,23 +4,18 @@ import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 import android.accessibilityservice.AccessibilityService;
 import android.annotation.SuppressLint;
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
-import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.graphics.Rect;
 import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
-import android.os.Bundle;
+import android.os.IBinder;
 import android.util.Log;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
-
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
@@ -40,16 +35,14 @@ import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
+import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
+import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
 import io.benwiegand.atvremote.receiver.ui.DebugOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
-public class AccessibilityInputService extends AccessibilityService {
+public class AccessibilityInputService extends AccessibilityService implements MakeshiftBindCallback {
     private static final String TAG = AccessibilityInputService.class.getSimpleName();
-
-    public static final String INTENT_ACCESSIBILITY_INPUT_BINDER_REQUEST = "io.benwiegand.atvremote.receiver.control.accessibilityinput.GIVE_ME_BINDER";
-    public static final String INTENT_ACCESSIBILITY_INPUT_BINDER_INSTANCE = "io.benwiegand.atvremote.receiver.control.accessibilityinput.BINDER_INSTANCE";
-    public static final String EXTRA_BINDER_INSTANCE = "binder";
 
     /**
      * fake dpad is necessary because there is no GLOBAL_ACTION_DPAD_(whatever) before api 33
@@ -68,7 +61,7 @@ public class AccessibilityInputService extends AccessibilityService {
     private static final int DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR = 0xFF0000FF; // blue
 
     private final AccessibilityInputHandler binder = new AccessibilityInputHandler();
-    private final BroadcastReceiver receiver = new Receiver();
+    private MakeshiftBind makeshiftBind = null;
 
     private CursorInput cursorInput = null;
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
@@ -90,17 +83,11 @@ public class AccessibilityInputService extends AccessibilityService {
         super.onServiceConnected();
         Log.i(TAG, "service connected!");
 
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(INTENT_ACCESSIBILITY_INPUT_BINDER_REQUEST);
-        LocalBroadcastManager
-                .getInstance(this)
-                .registerReceiver(receiver, filter);
+        makeshiftBind = new MakeshiftBind(this, new ComponentName(this, AccessibilityInputService.class), this);
 
         cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
-
-        broadcastBinder();
     }
 
     @Override
@@ -112,29 +99,14 @@ public class AccessibilityInputService extends AccessibilityService {
     public boolean onUnbind(Intent intent) {
         Log.d(TAG, "onUnbind()");
         if (cursorInput != null) cursorInput.destroy();
+        makeshiftBind.onDestroy();
         return super.onUnbind(intent);
     }
 
-    private void broadcastBinder() {
-        Log.d(TAG, "sending binder instance broadcast");
-        Intent intent = new Intent(INTENT_ACCESSIBILITY_INPUT_BINDER_INSTANCE);
-        Bundle extras = new Bundle();
-        extras.putBinder(EXTRA_BINDER_INSTANCE,  binder);
-        intent.putExtras(extras);
-
-        LocalBroadcastManager
-                .getInstance(this)
-                .sendBroadcast(intent);
-    }
-
-    public class Receiver extends BroadcastReceiver {
-
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            // makeshift bind
-            Log.d(TAG, "got binder request");
-            broadcastBinder();
-        }
+    @Override
+    public IBinder onMakeshiftBind(Intent intent) {
+        Log.d(TAG, "onMakeshiftBind()");
+        return binder;
     }
 
     private void checkSoftKeyboard(AccessibilityEvent event) {

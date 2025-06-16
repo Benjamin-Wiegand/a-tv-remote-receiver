@@ -1,25 +1,21 @@
 package io.benwiegand.atvremote.receiver.control;
 
-import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.ServiceConnection;
-import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
-
-import androidx.localbroadcastmanager.content.LocalBroadcastManager;
 
 import java.util.function.Consumer;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 
 public class ControlSourceConnectionManager {
     private static final String TAG = ControlSourceConnectionManager.class.getSimpleName();
 
-    private final BroadcastReceiver accessibilityServiceBinderReceiver = new AccessibilityServiceBinderReceiver();
+    private final MakeshiftServiceConnection accessibilityInputServiceConnection = new AccessibilityInputServiceConnection();
     private ServiceConnection notificationInputServiceConnection = new NotificationInputServiceConnection();
 
     private final ControlScheme controlScheme;
@@ -51,10 +47,7 @@ public class ControlSourceConnectionManager {
         controlScheme = new ControlScheme(controlSourceErrors);
 
         // "bind" accessibility service
-        IntentFilter filter = new IntentFilter();
-        filter.addAction(AccessibilityInputService.INTENT_ACCESSIBILITY_INPUT_BINDER_INSTANCE);
-        LocalBroadcastManager.getInstance(context).registerReceiver(accessibilityServiceBinderReceiver, filter);
-        requestAccessibilityBinder();
+        MakeshiftServiceConnection.bindService(context, new ComponentName(context, AccessibilityInputService.class), accessibilityInputServiceConnection);
 
         // bind notification listener service
         Intent notificationInputServiceIntent = new Intent(context, NotificationInputService.class);
@@ -66,7 +59,8 @@ public class ControlSourceConnectionManager {
         synchronized (deathLock) {
             dead = true;
         }
-        LocalBroadcastManager.getInstance(context).unregisterReceiver(accessibilityServiceBinderReceiver);
+
+        accessibilityInputServiceConnection.destroy();
 
         context.unbindService(notificationInputServiceConnection);
     }
@@ -75,22 +69,12 @@ public class ControlSourceConnectionManager {
         return controlScheme;
     }
 
-    private void requestAccessibilityBinder() {
-        Log.v(TAG, "requesting accessibility service binder");
-        Intent intent = new Intent(AccessibilityInputService.INTENT_ACCESSIBILITY_INPUT_BINDER_REQUEST);
-        LocalBroadcastManager.getInstance(context).sendBroadcast(intent);
-    }
-
-    public class AccessibilityServiceBinderReceiver extends BroadcastReceiver {
+    private class AccessibilityInputServiceConnection extends MakeshiftServiceConnection {
         @Override
-        public void onReceive(Context context, Intent intent) {
-            Log.d(TAG, "got accessibility binder instance intent");
-            Bundle extras = intent.getExtras();
-            assert extras != null; // this intent should always have an extra
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG, "AccessibilityInputService connected");
 
-            AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) extras.getBinder(AccessibilityInputService.EXTRA_BINDER_INSTANCE);
-            Log.i(TAG, "accessibility binder instance: " + binder);
-            assert binder != null; // this extra should never be null
+            AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) service;
 
             // set accessibility control methods
             controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
@@ -102,6 +86,18 @@ public class ControlSourceConnectionManager {
             controlScheme.setOverlayOutput(binder.getOverlayOutput());
 
             onBind.accept(binder);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.w(TAG, "AccessibilityInputService disconnected");
+
+            controlScheme.setDirectionalPadInput(null);
+            controlScheme.setNavigationInput(null);
+            controlScheme.setCursorInput(null);
+            controlScheme.setVolumeInput(null);
+            controlScheme.setActivityLauncherInput(null);
+            controlScheme.setOverlayOutput(null);
         }
     }
 
