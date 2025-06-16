@@ -9,7 +9,9 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
@@ -68,18 +70,23 @@ public class DebugActivity extends AppCompatActivity {
             bindService(sintent, debugServiceConnection, 0);
         });
 
-        findViewById(R.id.accessibility_settings_button).setOnClickListener(v ->
-                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)));
+        findViewById(R.id.accessibility_settings_button).setOnClickListener(v -> tryActivityIntents(
+                new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+        ));
 
-        findViewById(R.id.notification_listener_settings_button).setOnClickListener(v -> {
-            Intent detailIntent = new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS);
-            detailIntent.putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(this, NotificationInputService.class).flattenToString());
-            try {
-                startActivity(detailIntent);
-            } catch (ActivityNotFoundException e) {
-                Log.e(TAG, "notification listener detail activity does not exist, falling back");
-                startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
-            }
+        findViewById(R.id.notification_listener_settings_button).setOnClickListener(v -> tryActivityIntents(
+                new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(this, NotificationInputService.class).flattenToString()),
+                new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+        ));
+
+        findViewById(R.id.keyboard_settings_button).setOnClickListener(v -> tryActivityIntents(
+                new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
+        ));
+
+        findViewById(R.id.switch_ime_keyboard_button).setOnClickListener(v -> {
+            InputMethodManager imm = getSystemService(InputMethodManager.class);
+            imm.showInputMethodPicker();
         });
 
         findViewById(R.id.update_debug_info_button).setOnClickListener(v -> {
@@ -111,11 +118,21 @@ public class DebugActivity extends AppCompatActivity {
             debugInfoText.setText(sb.toString());
         });
 
-        // todo
-//        startActivity(new Intent(ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS));
-//        startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS));
-
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), debugServiceConnection);
+    }
+
+    private void tryActivityIntents(Intent... intents) {
+        for (Intent intent : intents) {
+            try {
+                startActivity(intent);
+                return;
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "can't find activity for intent: " + intent, e);
+            }
+        }
+
+        Log.e(TAG, "none of the provided intents were successful");
+        Toast.makeText(this, "no suitable activity found", Toast.LENGTH_SHORT).show();
     }
 
     @Override

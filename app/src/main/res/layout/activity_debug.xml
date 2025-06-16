@@ -13,16 +13,16 @@
         tools:context=".ui.DebugActivity">
 
         <Button
-            android:id="@+id/try_bind_button"
+            android:id="@+id/start_server_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="try bind" />
+            android:text="start server" />
 
         <Button
             android:id="@+id/show_pairing_dialog_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="show pairing dialog" />
+            android:text="show test pairing dialog" />
 
         <Button
             android:id="@+id/show_test_notif_button"
@@ -37,29 +37,38 @@
             android:text="show debug overlay" />
 
         <Button
-            android:id="@+id/start_server_button"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="start server" />
-
-        <Button
             android:id="@+id/accessibility_settings_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="go to accessibility settings" />
+            android:text="accessibility settings" />
 
         <Button
             android:id="@+id/notification_listener_settings_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="go to notification listener settings" />
+            android:text="notification listener settings" />
 
-        <TextView
-            android:id="@+id/debug_info_text"
-            android:layout_width="match_parent"
+        <Button
+            android:id="@+id/keyboard_settings_button"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.AppCompat.Body1"
-            tools:text="some info" />
+            android:text="keyboard settings" />
+
+        <Button
+            android:id="@+id/switch_ime_keyboard_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="switch ime" />
+
+        <EditText
+            android:id="@+id/some_text_box"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="?android:attr/listDivider" />
 
         <Button
             android:id="@+id/update_debug_info_button"
@@ -67,10 +76,12 @@
             android:layout_height="wrap_content"
             android:text="update debug info" />
 
-        <EditText
-            android:id="@+id/some_text_box"
+        <TextView
+            android:id="@+id/debug_info_text"
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"/>
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.AppCompat.Body1"
+            tools:text="some info" />
 
     </LinearLayout>
 </ScrollView>
