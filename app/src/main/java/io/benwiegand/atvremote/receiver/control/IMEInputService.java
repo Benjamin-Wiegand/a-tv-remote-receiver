@@ -4,7 +4,9 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.inputmethod.InputConnection;
@@ -16,9 +18,12 @@ import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallbac
 public class IMEInputService extends InputMethodService implements MakeshiftBindCallback {
     private static final String TAG = IMEInputService.class.getSimpleName();
 
+    private static final long LONG_PRESS_DURATION = 1500;
+
     private MakeshiftBind makeshiftBind = null;
     private final IBinder binder = new ServiceBinder();
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
+    private final Handler handler = new Handler(Looper.getMainLooper());
 
     @Override
     public void onCreate() {
@@ -47,7 +52,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         super.onBindInput();
     }
 
-    public boolean simulateKeystroke(int keyCode) {
+    public boolean simulateKeystroke(int keyCode, boolean longPress) {
         Log.v(TAG, "simulating keystroke: " + keyCode);
 
         InputConnection inputConnection = getCurrentInputConnection();
@@ -58,11 +63,24 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
         // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
         boolean down = inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        boolean up = inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
 
-        if (down && !up) Log.w(TAG, "ACTION_DOWN sent, but ACTION_UP failed");
+        Runnable doKeyUp = () -> {
+            boolean up = inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+            if (down && !up) Log.w(TAG, "ACTION_DOWN sent, but ACTION_UP failed");
+        };
+
+        if (longPress) {
+            handler.postDelayed(doKeyUp, LONG_PRESS_DURATION);
+        } else {
+            doKeyUp.run();
+        }
         return down;
     }
+
+    public boolean simulateKeystroke(int keyCode) {
+        return simulateKeystroke(keyCode, false);
+    }
+
 
     // the keyboard can act as a cursed dpad on API level <33
     // not exactly sure where the line is, but I know it doesn't work on 35
@@ -95,8 +113,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
         @Override
         public void dpadLongPress() {
-            // todo
-//            simulateKeystroke(KeyEvent.KEYCODE_DPAD_CENTER);
+            simulateKeystroke(KeyEvent.KEYCODE_DPAD_CENTER, true);
         }
 
         @Override
