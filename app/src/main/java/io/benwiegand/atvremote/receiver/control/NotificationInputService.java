@@ -95,13 +95,13 @@ public class NotificationInputService extends NotificationListenerService {
     @Override
     public void onListenerConnected() {
         super.onListenerConnected();
-        Log.d(TAG, "onListenerConnected()");
+        Log.v(TAG, "notification listener connected");
     }
 
     @Override
     public void onListenerDisconnected() {
         super.onListenerDisconnected();
-        Log.d(TAG, "onListenerDisconnected()");
+        Log.v(TAG, "notification listener disconnected");
     }
 
     @Override
@@ -424,7 +424,6 @@ public class NotificationInputService extends NotificationListenerService {
         }
 
         public void onServerBind(EventStreamManager eventStreamManager) {
-            Log.d(TAG, "onServerBind()");
             mediaSessionsEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_SESSIONS);
             mediaMetadataEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_METADATA);
             mediaPositionEventStream = eventStreamManager.getOrCreateStateEventStream(EVENT_TYPE_MEDIA_POSITION);

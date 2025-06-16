@@ -81,7 +81,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     @Override
     protected void onServiceConnected() {
         super.onServiceConnected();
-        Log.i(TAG, "service connected!");
+        Log.i(TAG, "accessibility service connected");
 
         makeshiftBind = new MakeshiftBind(this, new ComponentName(this, AccessibilityInputService.class), this);
 
@@ -97,7 +97,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.d(TAG, "onUnbind()");
+        Log.i(TAG, "accessibility service disconnected");
         if (cursorInput != null) cursorInput.destroy();
         makeshiftBind.destroy();
         return super.onUnbind(intent);
@@ -105,7 +105,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     @Override
     public IBinder onMakeshiftBind(Intent intent) {
-        Log.d(TAG, "onMakeshiftBind()");
         return binder;
     }
 
@@ -147,7 +146,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        Log.d(TAG, "onAccessibilityEvent()");
 
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             Log.d(TAG, "windows changed event");

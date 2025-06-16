@@ -38,33 +38,22 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     @Override
     public IBinder onMakeshiftBind(Intent intent) {
-        Log.d(TAG, "onMakeshiftBind()");
         return binder;
     }
 
     @Override
-    public boolean onEvaluateInputViewShown() {
-        boolean result = super.onEvaluateInputViewShown();
-        Log.v(TAG, "onEvaluateInputViewShown(): " + result);
-        return result;
-    }
-
-    @Override
     public void onBindInput() {
-        Log.d(TAG, "onBindInput()");
+        Log.v(TAG, "input service ready to input");
         super.onBindInput();
     }
 
     public boolean simulateKeystroke(int keyCode) {
-        Log.v(TAG, "using IME dpad, keycode: " + keyCode);
+        Log.v(TAG, "simulating keystroke: " + keyCode);
 
         InputConnection inputConnection = getCurrentInputConnection();
         if (inputConnection == null) {
-            inputConnection = getCurrentInputConnection();
-            if (inputConnection == null) {
-                Log.e(TAG, "failed to open IME");
-                return false;
-            }
+            Log.e(TAG, "IME not connected");
+            return false;
         }
 
         // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
