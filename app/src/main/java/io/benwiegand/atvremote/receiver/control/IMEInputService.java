@@ -81,9 +81,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         return simulateKeystroke(keyCode, false);
     }
 
-
-    // the keyboard can act as a cursed dpad on API level <33
-    // not exactly sure where the line is, but I know it doesn't work on 35
     public class DirectionalPadInputHandler implements DirectionalPadInput {
 
         @Override
