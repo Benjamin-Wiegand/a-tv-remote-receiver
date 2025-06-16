@@ -33,7 +33,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         Log.d(TAG, "onDestroy()");
         super.onDestroy();
 
-        makeshiftBind.onDestroy();
+        makeshiftBind.destroy();
     }
 
     @Override

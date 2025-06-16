@@ -47,7 +47,7 @@ public class MakeshiftBind {
         sendReadyIntent();
     }
 
-    public void onDestroy() {
+    public void destroy() {
         LocalBroadcastManager
                 .getInstance(context)
                 .unregisterReceiver(bindRequestReceiver);

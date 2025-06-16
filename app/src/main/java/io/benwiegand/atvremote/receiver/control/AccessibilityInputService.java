@@ -99,7 +99,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     public boolean onUnbind(Intent intent) {
         Log.d(TAG, "onUnbind()");
         if (cursorInput != null) cursorInput.destroy();
-        makeshiftBind.onDestroy();
+        makeshiftBind.destroy();
         return super.onUnbind(intent);
     }
 
