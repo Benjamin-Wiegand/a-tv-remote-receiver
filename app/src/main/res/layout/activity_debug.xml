@@ -67,5 +67,10 @@
             android:layout_height="wrap_content"
             android:text="update debug info" />
 
+        <EditText
+            android:id="@+id/some_text_box"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"/>
+
     </LinearLayout>
 </ScrollView>

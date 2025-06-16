@@ -47,7 +47,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     /**
      * fake dpad is necessary because there is no GLOBAL_ACTION_DPAD_(whatever) before api 33
      */
-    private static final boolean USES_FAKE_DPAD = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
+    public static final boolean USES_FAKE_DPAD = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
 
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red

@@ -2,6 +2,7 @@
     <string name="app_name">A TV Remote Receiver</string>
     <string name="accessibility_input_service_label">A TV Remote Inputs</string>
     <string name="accessibility_input_service_description">Allows control of your device via a remote client</string>
+    <string name="ime_input_service_label">A TV Remote Keyboard</string>
     <string name="notification_input_service_label">Media controls</string>
 
     <!-- general ui -->

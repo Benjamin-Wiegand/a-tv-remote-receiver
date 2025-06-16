@@ -16,6 +16,7 @@ public class ControlSourceConnectionManager {
     private static final String TAG = ControlSourceConnectionManager.class.getSimpleName();
 
     private final MakeshiftServiceConnection accessibilityInputServiceConnection = new AccessibilityInputServiceConnection();
+    private final MakeshiftServiceConnection imeInputServiceConnection = new IMEInputServiceConnection();
     private ServiceConnection notificationInputServiceConnection = new NotificationInputServiceConnection();
 
     private final ControlScheme controlScheme;
@@ -48,6 +49,7 @@ public class ControlSourceConnectionManager {
 
         // "bind" accessibility service
         MakeshiftServiceConnection.bindService(context, new ComponentName(context, AccessibilityInputService.class), accessibilityInputServiceConnection);
+        MakeshiftServiceConnection.bindService(context, new ComponentName(context, IMEInputService.class), imeInputServiceConnection);
 
         // bind notification listener service
         Intent notificationInputServiceIntent = new Intent(context, NotificationInputService.class);
@@ -61,6 +63,7 @@ public class ControlSourceConnectionManager {
         }
 
         accessibilityInputServiceConnection.destroy();
+        imeInputServiceConnection.destroy();
 
         context.unbindService(notificationInputServiceConnection);
     }
@@ -98,6 +101,28 @@ public class ControlSourceConnectionManager {
             controlScheme.setVolumeInput(null);
             controlScheme.setActivityLauncherInput(null);
             controlScheme.setOverlayOutput(null);
+        }
+    }
+
+    private class IMEInputServiceConnection extends MakeshiftServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG, "IMEInputService connected");
+
+            IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
+
+            // set control methods
+            // todo
+//            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
+
+            onBind.accept(binder);
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.w(TAG, "IMEInputService disconnected");
+
+//            controlScheme.setDirectionalPadInput(null);
         }
     }
 
