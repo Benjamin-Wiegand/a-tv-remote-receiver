@@ -58,4 +58,6 @@
         \n
         Open the receiver app on your TV for more information.
     </string>
+    <string name="ime_input_view_notice">the keyboard is currently set to only take input from the remote app</string>
+    <string name="ime_input_view_revert_soft_keyboard_button">switch back to on-screen keyboard</string>
 </resources>

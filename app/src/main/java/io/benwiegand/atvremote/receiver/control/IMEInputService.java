@@ -1,16 +1,21 @@
 package io.benwiegand.atvremote.receiver.control;
 
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.inputmethodservice.InputMethodService;
 import android.os.Binder;
+import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
+import android.view.View;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodManager;
 
+import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
@@ -24,6 +29,8 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     private final IBinder binder = new ServiceBinder();
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
     private final Handler handler = new Handler(Looper.getMainLooper());
+
+    private View view = null;
 
     @Override
     public void onCreate() {
@@ -77,6 +84,86 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         return down;
     }
 
+    private void switchToSoftKeyboard() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            if (switchToPreviousInputMethod()) return;
+            Log.v(TAG, "unable to switch to previous ime");
+        }
+
+        InputMethodManager imm = getSystemService(InputMethodManager.class);
+        imm.showInputMethodPicker();
+    }
+
+    @Override
+    public boolean onEvaluateFullscreenMode() {
+        super.onEvaluateFullscreenMode();
+        return false;
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        // todo: for some reason this isn't called after the keyboard is dismissed for the first time
+        View inputView = view;
+        if (inputView == null) return super.onKeyDown(keyCode, event);
+
+        View button = view.findViewById(R.id.revert_soft_keyboard_button);
+        button.setVisibility(View.VISIBLE);
+
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_DPAD_DOWN,
+                 KeyEvent.KEYCODE_DPAD_UP,
+                 KeyEvent.KEYCODE_DPAD_LEFT,
+                 KeyEvent.KEYCODE_DPAD_RIGHT,
+                 KeyEvent.KEYCODE_DPAD_DOWN_LEFT,
+                 KeyEvent.KEYCODE_DPAD_DOWN_RIGHT,
+                 KeyEvent.KEYCODE_DPAD_UP_LEFT,
+                 KeyEvent.KEYCODE_DPAD_UP_RIGHT -> {
+
+                button.requestFocus();
+                return true;
+            }
+
+            case KeyEvent.KEYCODE_DPAD_CENTER,
+                 KeyEvent.KEYCODE_ENTER,
+                 KeyEvent.KEYCODE_NUMPAD_ENTER -> {
+
+                if (button.hasFocus() && button.performClick()) return true;
+            }
+
+            case KeyEvent.KEYCODE_BACK,
+                 KeyEvent.KEYCODE_ESCAPE -> {
+
+                if (button.hasFocus()) {
+                    button.clearFocus();
+                    return true;
+                }
+            }
+        }
+
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public View onCreateInputView() {
+        if (AccessibilityInputService.USES_IME_DPAD_ASSIST) {
+            // the accessibility service will be able to switch back to this input method when it's needed again
+            switchToSoftKeyboard();
+            return null;
+        }
+
+        // show a menu that offers to send you back
+        view = getLayoutInflater().inflate(R.layout.layout_ime_input_view, null);
+        view.findViewById(R.id.revert_soft_keyboard_button).setOnClickListener(v -> switchToSoftKeyboard());
+        view.requestFocus();
+        return view;
+    }
+
+    @Override
+    public void onFinishInputView(boolean finishingInput) {
+        super.onFinishInputView(finishingInput);
+        view = null;
+    }
+
     public boolean simulateKeystroke(int keyCode) {
         return simulateKeystroke(keyCode, false);
     }
@@ -125,6 +212,10 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
             return directionalPadInput;
         }
 
+    }
+
+    public static String getInputMethodId(Context context) {
+        return new ComponentName(context, IMEInputService.class).flattenToShortString();
     }
 
 }

@@ -16,9 +16,14 @@ import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.InputMethodInfo;
+import android.view.inputmethod.InputMethodManager;
+
+import androidx.annotation.RequiresApi;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -37,6 +42,7 @@ import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
+import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 import io.benwiegand.atvremote.receiver.ui.DebugOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
@@ -45,9 +51,20 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private static final String TAG = AccessibilityInputService.class.getSimpleName();
 
     /**
-     * fake dpad is necessary because there is no GLOBAL_ACTION_DPAD_(whatever) before api 33
+     * fake dpad is necessary because:
+     * <ul>
+     *     <li>there is no GLOBAL_ACTION_DPAD_(whatever) before api 33</li>
+     *     <li>there is no way to switch IME without user confirmation before api 30</li>
+     * </ul>
      */
-    public static final boolean USES_FAKE_DPAD = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU;
+    public static final boolean USES_FAKE_DPAD = Build.VERSION.SDK_INT < Build.VERSION_CODES.R;
+
+    /**
+     * fake dpad can be avoided on api 30, 31, and 32 by leveraging the IME input and switching
+     * between it and the user configured on-screen keyboard.
+     * fake dpad will still have to be used to control the on-screen keyboard.
+     */
+    public static final boolean USES_IME_DPAD_ASSIST = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !USES_FAKE_DPAD;
 
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red
@@ -73,6 +90,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private NotificationOverlay notificationOverlay = null;
     private DebugOverlay debugOverlay = null;
 
+    // ime dpad assist
+    // for api 30, 31, and 32
+    private MakeshiftServiceConnection imeInputServiceConnection = new IMEInputServiceConnection();
+    private DirectionalPadInput imeDirectionalPadInput = null;
+
     private boolean softKeyboardOpen = false;
     private AccessibilityWindowInfo softKeyboardWindow = null;
 
@@ -88,6 +110,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
         cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
+
+        if (USES_IME_DPAD_ASSIST) {
+            MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), imeInputServiceConnection);
+        }
     }
 
     @Override
@@ -100,6 +126,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
         Log.i(TAG, "accessibility service disconnected");
         if (cursorInput != null) cursorInput.destroy();
         makeshiftBind.destroy();
+        imeInputServiceConnection.destroy();
         return super.onUnbind(intent);
     }
 
@@ -398,12 +425,57 @@ public class AccessibilityInputService extends AccessibilityService implements M
             Log.w(TAG, "focus action failed");
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.R)
+    private Optional<DirectionalPadInput> getImeDpad() {
+        DirectionalPadInput directionalPadInput = imeDirectionalPadInput;
+        if (directionalPadInput != null) return Optional.of(directionalPadInput);
+
+        String imeId = IMEInputService.getInputMethodId(this);
+
+        boolean switchResult = getSoftKeyboardController().switchToInputMethod(imeId);
+        if (switchResult) return Optional.empty(); //todo: try to figrue something out to avoid dropping a dpad input
+
+        InputMethodManager imm = getSystemService(InputMethodManager.class);
+        assert imm.getInputMethodList().stream()
+                .map(InputMethodInfo::getId)
+                .anyMatch(imeId::equals);
+
+        boolean isEnabled = imm.getEnabledInputMethodList().stream()
+                .map(InputMethodInfo::getId)
+                .anyMatch(imeId::equals);
+
+        if (isEnabled) {
+            Log.wtf(TAG, "input method is enabled, but the switch failed");
+            return Optional.empty();
+        }
+
+        // todo: ask user to enable input method
+        Log.e(TAG, "input method not enabled");
+
+        return Optional.empty();
+
+    }
+
     public class DirectionalPadInputHandler implements DirectionalPadInput {
+
+        private boolean shouldUseFakeDpad() {
+            return USES_FAKE_DPAD ||
+                    (USES_IME_DPAD_ASSIST && isSoftKeyboardUsable());
+        }
+
+        private void fakeDpadSelect() {
+            AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        }
 
         @Override
         public void dpadDown() {
-            if (USES_FAKE_DPAD) {
+            if (shouldUseFakeDpad()) {
                 fakeDpad(View.FOCUS_DOWN);
+            } else if (USES_IME_DPAD_ASSIST) {
+                getImeDpad().ifPresentOrElse(
+                        DirectionalPadInput::dpadDown,
+                        () -> fakeDpad(View.FOCUS_DOWN));
             } else {
                 performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
             }
@@ -411,8 +483,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadUp() {
-            if (USES_FAKE_DPAD) {
+            if (shouldUseFakeDpad()) {
                 fakeDpad(View.FOCUS_UP);
+            } else if (USES_IME_DPAD_ASSIST) {
+                getImeDpad().ifPresentOrElse(
+                        DirectionalPadInput::dpadUp,
+                        () -> fakeDpad(View.FOCUS_UP));
             } else {
                 performGlobalAction(GLOBAL_ACTION_DPAD_UP);
             }
@@ -420,8 +496,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadLeft() {
-            if (USES_FAKE_DPAD) {
+            if (shouldUseFakeDpad()) {
                 fakeDpad(View.FOCUS_LEFT);
+            } else if (USES_IME_DPAD_ASSIST) {
+                getImeDpad().ifPresentOrElse(
+                        DirectionalPadInput::dpadLeft,
+                        () -> fakeDpad(View.FOCUS_LEFT));
             } else {
                 performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
             }
@@ -429,8 +509,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadRight() {
-            if (USES_FAKE_DPAD) {
+            if (shouldUseFakeDpad()) {
                 fakeDpad(View.FOCUS_RIGHT);
+            } else if (USES_IME_DPAD_ASSIST) {
+                getImeDpad().ifPresentOrElse(
+                        DirectionalPadInput::dpadRight,
+                        () -> fakeDpad(View.FOCUS_RIGHT));
             } else {
                 performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
             }
@@ -438,9 +522,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect() {
-            if (USES_FAKE_DPAD) {
-                AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
-                if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+            if (shouldUseFakeDpad()) {
+                fakeDpadSelect();
+            } else if (USES_IME_DPAD_ASSIST) {
+                getImeDpad().ifPresentOrElse(DirectionalPadInput::dpadSelect, this::fakeDpadSelect);
             } else {
                 performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
             }
@@ -449,7 +534,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
         @Override
         public void dpadLongPress() {
             AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
-            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+            boolean successful = node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+
+            if (!successful && USES_IME_DPAD_ASSIST) {
+                Log.v(TAG, "failed to long press node, falling back to ime");
+                getImeDpad().ifPresent(DirectionalPadInput::dpadLongPress);
+            }
         }
 
         @Override
@@ -585,6 +675,21 @@ public class AccessibilityInputService extends AccessibilityService implements M
         @Override
         public void destroy() {
 
+        }
+    }
+
+    public class IMEInputServiceConnection extends MakeshiftServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.v(TAG, "IMEInputService service connected");
+            IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
+            imeDirectionalPadInput = binder.getDirectionalPadInput();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.v(TAG, "IMEInputService service disconnected");
+            imeDirectionalPadInput = null;
         }
     }
 
