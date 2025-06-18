@@ -16,5 +16,8 @@
 
     <style name="Theme.ATVRemoteReceiver.Leanback" parent="@style/Theme.Leanback">
 
+        <item name="android:windowBackground">@color/dark_gray</item>
+        <item name="android:colorBackgroundFloating">@color/less_dark_gray</item>
+
     </style>
 </resources>

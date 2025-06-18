@@ -7,6 +7,8 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+    <color name="dark_gray">#FF121212</color>
+    <color name="less_dark_gray">#FF222222</color>
 
     <color name="overlay_background">#DD000000</color>
 </resources>
