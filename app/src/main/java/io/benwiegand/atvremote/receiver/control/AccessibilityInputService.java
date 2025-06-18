@@ -170,10 +170,21 @@ public class AccessibilityInputService extends AccessibilityService implements M
             if (isDebugOverlayEnabled()) {
                 AccessibilityNodeInfo node = findFirstFocusableNode(softKeyboardWindow);
                 debugDrawRect(DEBUG_OVERLAY_KEYBOARD_DETECTION, node, DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR);
+
+                // also show focusable nodes (to gauge usability)
+                List<AccessibilityNodeInfo> nodes = new LinkedList<>();
+                traverseNodeChildren(node, child -> {
+                    if (child.isFocusable())
+                        nodes.add(child);
+                    return false;
+                });
+
+                debugDrawNodeRectGroup(DEBUG_OVERLAY_KEYBOARD_FOCUSABLE, nodes.stream().toArray(AccessibilityNodeInfo[]::new), DEBUG_OVERLAY_KEYBOARD_FOCUSABLE_COLOR);
             }
         } else {
             Log.v(TAG, "soft keyboard closed");
             debugRemoveRect(DEBUG_OVERLAY_KEYBOARD_DETECTION);
+            debugRemoveRect(DEBUG_OVERLAY_KEYBOARD_FOCUSABLE);
         }
     }
 
