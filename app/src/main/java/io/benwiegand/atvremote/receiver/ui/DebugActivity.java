@@ -9,7 +9,11 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
 import android.view.inputmethod.InputMethodManager;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -116,6 +120,27 @@ public class DebugActivity extends AppCompatActivity {
             }
 
             debugInfoText.setText(sb.toString());
+        });
+
+        Spinner showMatchingNodesSpinner = findViewById(R.id.debug_show_matching_nodes_spinner);
+        ArrayAdapter<AccessibilityInputService.NodeCondition> conditionAdapter = new ArrayAdapter<>(this, R.layout.layout_debug_spinner_item);
+        conditionAdapter.addAll(AccessibilityInputService.NodeCondition.values());
+        showMatchingNodesSpinner.setAdapter(conditionAdapter);
+        showMatchingNodesSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (binder == null) return;
+
+                assert position < AccessibilityInputService.NodeCondition.values().length;
+                assert position >= 0;
+                binder.setShowMatchingDebugNodesCondition(AccessibilityInputService.NodeCondition.values()[position]);
+            }
+
+            @Override
+            public void onNothingSelected(AdapterView<?> parent) {
+                if (binder == null) return;
+                binder.setShowMatchingDebugNodesCondition(null);
+            }
         });
 
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), debugServiceConnection);

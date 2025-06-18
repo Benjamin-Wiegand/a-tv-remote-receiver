@@ -68,6 +68,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red
+    private static final String DEBUG_OVERLAY_KEYBOARD_FOCUSABLE = "keyboardFocusable";
+    private static final int DEBUG_OVERLAY_KEYBOARD_FOCUSABLE_COLOR = 0xFFFFAAAA; // light red
     private static final String DEBUG_OVERLAY_NEW_FOCUS = "newFocus";
     private static final int DEBUG_OVERLAY_NEW_FOCUS_COLOR = 0xFF00FF00; // green
     private static final String DEBUG_OVERLAY_OLD_FOCUS = "oldFocus";
@@ -76,6 +78,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private static final int DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR = 0xFFFF00FF; // magenta
     private static final String DEBUG_OVERLAY_ACTIVE_WINDOW = "activeWindow";
     private static final int DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR = 0xFF0000FF; // blue
+    private static final String DEBUG_OVERLAY_SHOW_MATCHING_NODES = "matchingNodes";
+    private static final int DEBUG_OVERLAY_SHOW_MATCHING_NODES_COLOR = 0xFF00FFFF; // cyan
 
     private final AccessibilityInputHandler binder = new AccessibilityInputHandler();
     private MakeshiftBind makeshiftBind = null;
@@ -88,7 +92,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
+
     private DebugOverlay debugOverlay = null;
+    private NodeCondition debugShowMatchingNodesCondition = null;
 
     // ime dpad assist
     // for api 30, 31, and 32
@@ -232,6 +238,27 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private void debugRemoveRect(String key) {
         if (!isDebugOverlayEnabled()) return;
         debugOverlay.removeRect(key);
+    }
+
+    private void debugShowMatchingNodes() {
+        if (!isDebugOverlayEnabled() || debugShowMatchingNodesCondition == null) return;
+        Function<AccessibilityNodeInfo, Boolean> criteria = debugShowMatchingNodesCondition.createCriteria();
+
+        List<AccessibilityNodeInfo> matches = new LinkedList<>();
+
+        for (AccessibilityWindowInfo window : getWindows()) {
+            AccessibilityNodeInfo root = window.getRoot();
+            if (root == null) continue;
+
+            if (criteria.apply(root)) matches.add(root);
+            traverseNodeChildren(window.getRoot(), child -> {
+                if (criteria.apply(child)) matches.add(child);
+                return false;
+            });
+        }
+
+        AccessibilityNodeInfo[] nodes = matches.stream().toArray(AccessibilityNodeInfo[]::new);
+        debugDrawNodeRectGroup(DEBUG_OVERLAY_SHOW_MATCHING_NODES, nodes, DEBUG_OVERLAY_SHOW_MATCHING_NODES_COLOR);
     }
 
     /**
@@ -415,6 +442,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
             debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
         }
+        debugShowMatchingNodes();
 
         if (newNode == null) {
             Log.i(TAG, "no node found");
@@ -726,6 +754,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
             debugOverlay.start();
         }
 
+        public void setShowMatchingDebugNodesCondition(NodeCondition condition) {
+            Log.i(TAG, "debug overlay showing nodes matching criteria: " + condition);
+            debugShowMatchingNodesCondition = condition;
+        }
+
         public DirectionalPadInput getDirectionalPadInput() {
             return directionalPadInput;
         }
@@ -749,5 +782,30 @@ public class AccessibilityInputService extends AccessibilityService implements M
         public OverlayOutput getOverlayOutput() {
             return overlayOutput;
         }
+    }
+
+    public enum NodeCondition {
+        CLICKABLE,
+        FOCUSABLE,
+        ENABLED,
+        CHECKABLE,
+        CONTEXT_CLICKABLE,
+        EDITABLE,
+        LONG_CLICKABLE,
+        DISMISSABLE;
+
+        private Function<AccessibilityNodeInfo, Boolean> createCriteria() {
+            return switch (this) {
+                case CLICKABLE -> AccessibilityNodeInfo::isClickable;
+                case FOCUSABLE -> AccessibilityNodeInfo::isFocusable;
+                case ENABLED -> AccessibilityNodeInfo::isEnabled;
+                case CHECKABLE -> AccessibilityNodeInfo::isCheckable;
+                case CONTEXT_CLICKABLE -> AccessibilityNodeInfo::isContextClickable;
+                case EDITABLE -> AccessibilityNodeInfo::isEditable;
+                case LONG_CLICKABLE -> AccessibilityNodeInfo::isLongClickable;
+                case DISMISSABLE -> AccessibilityNodeInfo::isDismissable;
+            };
+        }
+
     }
 }
