@@ -43,8 +43,7 @@ public class NotificationOverlay extends MakeshiftActivity {
     @Override
     public void start() {
         super.start();
-        // todo: manage visibility
-//        hide();
+        hide();
     }
 
     private void insertNotification(LinearLayout notificationList, View notification) {
@@ -79,7 +78,12 @@ public class NotificationOverlay extends MakeshiftActivity {
                         .setDuration(FLY_OUT_DURATION_INNER)
                         .setInterpolator(UiUtil.EASE_IN)
                         .translationX(background.getWidth())
-                        .withEndAction(() -> notificationList.removeView(notification))
+                        .withEndAction(() -> {
+                            notificationList.removeView(notification);
+                            if (notificationList.getChildCount() == 0) {
+                                hide();
+                            }
+                        })
                         .start();
             }
         }, duration);
@@ -147,6 +151,7 @@ public class NotificationOverlay extends MakeshiftActivity {
         ImageView iconView = notification.findViewById(R.id.notification_icon);
         iconView.setImageResource(icon);
 
+        show();
         insertNotification(notificationList, notification);
     }
 

@@ -17,6 +17,7 @@ public abstract class MakeshiftActivity {
     private final WindowManager.LayoutParams layoutParams;
 
     protected final View root;
+    private boolean showing = false;
 
     protected MakeshiftActivity(Context context, @LayoutRes int layout, WindowManager.LayoutParams layoutParams) {
         this.context = context;
@@ -36,11 +37,15 @@ public abstract class MakeshiftActivity {
     }
 
     public void show() {
+        if (showing) return;
         wm.addView(root, layoutParams);
+        showing = true;
     }
 
     public void hide() {
+        if (!showing) return;
         wm.removeView(root);
+        showing = false;
     }
 
     protected void runOnUiThread(Runnable run) {
