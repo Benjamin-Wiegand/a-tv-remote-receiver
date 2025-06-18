@@ -48,6 +48,7 @@ public class NotificationOverlay extends MakeshiftActivity {
 
     private void insertNotification(LinearLayout notificationList, View notification) {
         runOnUiThread(() -> {
+            show();
             synchronized (lock) {
                 animateCascadeLocked(notificationList);
 
@@ -151,7 +152,6 @@ public class NotificationOverlay extends MakeshiftActivity {
         ImageView iconView = notification.findViewById(R.id.notification_icon);
         iconView.setImageResource(icon);
 
-        show();
         insertNotification(notificationList, notification);
     }
 
