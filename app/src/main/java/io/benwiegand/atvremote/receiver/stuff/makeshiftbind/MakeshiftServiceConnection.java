@@ -6,6 +6,7 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.util.Log;
@@ -87,7 +88,9 @@ public abstract class MakeshiftServiceConnection implements ServiceConnection {
                 assert connectionId != null;
                 IBinder binder = extras.getBinder(MakeshiftBind.EXTRA_BINDER_INSTANCE);
                 if (binder == null) {
-                    onNullBinding(component);
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                        onNullBinding(component);
+                    }
                 } else {
                     onServiceConnected(component, binder);
                 }
