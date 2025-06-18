@@ -218,6 +218,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         for (int i = 0; i < node.getChildCount(); i++) {
             AccessibilityNodeInfo childNode = node.getChild(i);
+            if (childNode == null) continue;
 
             if (criteria.apply(childNode)) {
                 return childNode;
