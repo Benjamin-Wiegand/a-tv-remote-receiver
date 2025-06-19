@@ -42,15 +42,18 @@ public class ProtocolConstants {
     public static final String OP_NAV_HOME = "NAV_HOME";
     public static final String OP_NAV_BACK = "NAV_BACK";
     public static final String OP_NAV_RECENT = "NAV_RECENT";
-    public static final String OP_NAV_APPS = "NAV_APPS";
     public static final String OP_NAV_NOTIFICATIONS = "NAV_NOTIFICATIONS";
     public static final String OP_NAV_QUICK_SETTINGS = "NAV_QUICK_SETTINGS";
 
     public static final String OP_VOLUME_UP = "VOL_UP";
     public static final String OP_VOLUME_DOWN = "VOL_DOWN";
-    public static final String OP_MUTE = "MUTE";
+    public static final String OP_MUTE_TOGGLE = "MUTE";
+    public static final String OP_MUTE = "MUTE_ON";
+    public static final String OP_UNMUTE = "MUTE_OFF";
 
+    public static final String OP_PLAY = "PLAY";
     public static final String OP_PAUSE = "PAUSE";
+    public static final String OP_PLAY_PAUSE = "PLAY_PAUSE";
     public static final String OP_NEXT_TRACK = "NEXT_TRACK";
     public static final String OP_PREV_TRACK = "PREV_TRACK";
     public static final String OP_SKIP_BACKWARD = "SKIP_BACKWARD";
@@ -59,8 +62,7 @@ public class ProtocolConstants {
     public static final String OP_CURSOR_SHOW = "CURSOR_SHOW";
     public static final String OP_CURSOR_HIDE = "CURSOR_HIDE";
     public static final String OP_CURSOR_MOVE = "CURSOR_MOVE";
-    public static final String OP_CURSOR_DOWN = "CURSOR_DOWN";
-    public static final String OP_CURSOR_UP = "CURSOR_UP";
+    public static final String OP_CURSOR_LEFT_BUTTON = "CURSOR_LEFT_BUTTON";
 
     public static final String OP_EXTRA_BUTTON = "EXTRA_BUTTON";
 

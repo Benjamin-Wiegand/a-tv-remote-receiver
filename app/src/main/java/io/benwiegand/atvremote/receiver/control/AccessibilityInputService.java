@@ -33,12 +33,14 @@ import java.util.function.Function;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.cursor.AccessibilityGestureCursor;
+import io.benwiegand.atvremote.receiver.control.cursor.FakeCursor;
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
@@ -84,7 +86,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final AccessibilityInputHandler binder = new AccessibilityInputHandler();
     private MakeshiftBind makeshiftBind = null;
 
-    private CursorInput cursorInput = null;
+    private FakeCursor cursorInput = null;
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
     private final NavigationInput navigationInput = new NavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
@@ -508,64 +510,91 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
 
         @Override
-        public void dpadDown() {
+        public void dpadDown(KeyEventType type) {
             if (shouldUseFakeDpad()) {
+                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_DOWN);
             } else if (USES_IME_DPAD_ASSIST) {
                 getImeDpad().ifPresentOrElse(
-                        DirectionalPadInput::dpadDown,
-                        () -> fakeDpad(View.FOCUS_DOWN));
+                        input -> input.dpadDown(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpad(View.FOCUS_DOWN);
+                        });
             } else {
+                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
             }
         }
 
         @Override
-        public void dpadUp() {
+        public void dpadUp(KeyEventType type) {
             if (shouldUseFakeDpad()) {
+                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_UP);
             } else if (USES_IME_DPAD_ASSIST) {
                 getImeDpad().ifPresentOrElse(
-                        DirectionalPadInput::dpadUp,
-                        () -> fakeDpad(View.FOCUS_UP));
+                        input -> input.dpadUp(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpad(View.FOCUS_UP);
+                        });
             } else {
+                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_UP);
             }
         }
 
         @Override
-        public void dpadLeft() {
+        public void dpadLeft(KeyEventType type) {
             if (shouldUseFakeDpad()) {
+                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_LEFT);
             } else if (USES_IME_DPAD_ASSIST) {
                 getImeDpad().ifPresentOrElse(
-                        DirectionalPadInput::dpadLeft,
-                        () -> fakeDpad(View.FOCUS_LEFT));
+                        input -> input.dpadLeft(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpad(View.FOCUS_LEFT);
+                        });
             } else {
+                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
             }
         }
 
         @Override
-        public void dpadRight() {
+        public void dpadRight(KeyEventType type) {
             if (shouldUseFakeDpad()) {
+                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_RIGHT);
             } else if (USES_IME_DPAD_ASSIST) {
                 getImeDpad().ifPresentOrElse(
-                        DirectionalPadInput::dpadRight,
-                        () -> fakeDpad(View.FOCUS_RIGHT));
+                        input -> input.dpadRight(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpad(View.FOCUS_RIGHT);
+                        });
             } else {
+                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
             }
         }
 
         @Override
-        public void dpadSelect() {
+        public void dpadSelect(KeyEventType type) {
             if (shouldUseFakeDpad()) {
+                if (type == KeyEventType.UP) return;
                 fakeDpadSelect();
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(DirectionalPadInput::dpadSelect, this::fakeDpadSelect);
+                getImeDpad().ifPresentOrElse(
+                        input -> input.dpadSelect(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpadSelect();
+                        });
             } else {
+                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
             }
         }
@@ -580,40 +609,27 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 getImeDpad().ifPresent(DirectionalPadInput::dpadLongPress);
             }
         }
-
-        @Override
-        public void destroy() {
-
-        }
     }
 
     public class NavigationInputHandler implements NavigationInput {
 
         @Override
-        public void navHome() {
+        public void navHome(KeyEventType type) {
             performGlobalAction(GLOBAL_ACTION_HOME);
         }
 
         @Override
-        public void navBack() {
+        public void navBack(KeyEventType type) {
             performGlobalAction(GLOBAL_ACTION_BACK);
         }
 
         @Override
-        public void navRecent() {
+        public void navRecent(KeyEventType type) {
             performGlobalAction(GLOBAL_ACTION_RECENTS);
         }
 
         @Override
-        public void navApps() {
-            // TODO: probably just remove this
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                performGlobalAction(GLOBAL_ACTION_ACCESSIBILITY_ALL_APPS);
-            }
-        }
-
-        @Override
-        public void navNotifications() {
+        public void navNotifications(KeyEventType type) {
             performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
         }
 
@@ -621,49 +637,41 @@ public class AccessibilityInputService extends AccessibilityService implements M
         public void navQuickSettings() {
             performGlobalAction(GLOBAL_ACTION_QUICK_SETTINGS);
         }
-
-        @Override
-        public void destroy() {
-
-        }
     }
 
     public class VolumeInputHandler implements VolumeInput {
 
-        @Override
-        public void volumeUp() {
+        private void sendVolumeAdjustment(int type) {
             AudioManager audioManager = getSystemService(AudioManager.class);
-            audioManager.adjustVolume(AudioManager.ADJUST_RAISE, AudioManager.FLAG_SHOW_UI);
+            audioManager.adjustVolume(type, AudioManager.FLAG_SHOW_UI);
         }
 
         @Override
-        public void volumeDown() {
-            AudioManager audioManager = getSystemService(AudioManager.class);
-            audioManager.adjustVolume(AudioManager.ADJUST_LOWER, AudioManager.FLAG_SHOW_UI);
+        public void volumeUp(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            sendVolumeAdjustment(AudioManager.ADJUST_RAISE);
         }
 
         @Override
-        public Optional<Boolean> getMute() {
-            // todo
-            return Optional.empty();
+        public void volumeDown(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            sendVolumeAdjustment(AudioManager.ADJUST_LOWER);
         }
 
         @Override
-        public void setMute(boolean muted) {
-            int input = muted ? AudioManager.ADJUST_MUTE : AudioManager.ADJUST_UNMUTE;
-            AudioManager audioManager = getSystemService(AudioManager.class);
-            audioManager.adjustVolume(input, AudioManager.FLAG_SHOW_UI);
+        public void mute() {
+            sendVolumeAdjustment(AudioManager.ADJUST_MUTE);
         }
 
         @Override
-        public void toggleMute() {
-            AudioManager audioManager = getSystemService(AudioManager.class);
-            audioManager.adjustVolume(AudioManager.ADJUST_TOGGLE_MUTE, AudioManager.FLAG_SHOW_UI);
+        public void unmute() {
+            sendVolumeAdjustment(AudioManager.ADJUST_UNMUTE);
         }
 
         @Override
-        public void destroy() {
-
+        public void toggleMute(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            sendVolumeAdjustment(AudioManager.ADJUST_TOGGLE_MUTE);
         }
     }
 
@@ -675,11 +683,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
             intent.addFlags(FLAG_ACTIVITY_NEW_TASK);
             intent.setComponent(activityComponent);
             startActivity(intent);
-        }
-
-        @Override
-        public void destroy() {
-
         }
     }
 
@@ -709,11 +712,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
         @Override
         public void displayNotification(int title, String description, int icon) {
             notificationOverlay.displayNotification(title, description, icon);
-        }
-
-        @Override
-        public void destroy() {
-
         }
     }
 

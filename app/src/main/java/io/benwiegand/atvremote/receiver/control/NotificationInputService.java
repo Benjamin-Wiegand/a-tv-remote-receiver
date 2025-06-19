@@ -56,6 +56,7 @@ import java.util.concurrent.atomic.AtomicReference;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
 import io.benwiegand.atvremote.receiver.protocol.json.MediaMetaEvent;
 import io.benwiegand.atvremote.receiver.protocol.json.MediaPositionEvent;
@@ -338,19 +339,28 @@ public class NotificationInputService extends NotificationListenerService {
         }
     }
 
-    private boolean sendKeyPress(MediaController mediaController, int keyCode) {
-        boolean down = mediaController.dispatchMediaButtonEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
-        boolean up = mediaController.dispatchMediaButtonEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+    private boolean sendKeyPress(MediaController mediaController, KeyEventType type, int keyCode) {
+        if (type == KeyEventType.CLICK || type == KeyEventType.DOWN) {
+            if (!mediaController.dispatchMediaButtonEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode))) {
+                Log.e(TAG, "media key down failed");
+                return false;
+            }
+        }
 
-        if (down && !up) Log.w(TAG, "ACTION_DOWN sent, but ACTION_UP failed");
-        return down;
+        if (type == KeyEventType.CLICK || type == KeyEventType.UP) {
+            if (!mediaController.dispatchMediaButtonEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode))) {
+                Log.e(TAG, "media key up failed");
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public class MediaInputHandler implements MediaInput {
-
-        public void simulateButton(int keyCode) {
+        public void simulateButton(KeyEventType type, int keyCode) {
             getPrimaryMediaSession().ifPresent(mediaController -> {
-                if (sendKeyPress(mediaController, keyCode)) return;
+                if (sendKeyPress(mediaController, type, keyCode)) return;
                 Log.wtf(TAG, "media key press failed");
                 // I'm not sure what exactly would cause this, but inform the user that it didn't work
                 throw new RemoteProtocolException(R.string.protocol_error_media_button_failed, "media key event returned false");
@@ -358,33 +368,38 @@ public class NotificationInputService extends NotificationListenerService {
         }
 
         @Override
-        public void pause() {
-            simulateButton(KEYCODE_MEDIA_PAUSE);
+        public void pause(KeyEventType type) {
+            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PAUSE);
         }
 
         @Override
-        public void play() {
-            simulateButton(KEYCODE_MEDIA_PLAY);
+        public void play(KeyEventType type) {
+            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PLAY);
         }
 
         @Override
-        public void playPause() {
-            simulateButton(KEYCODE_MEDIA_PLAY_PAUSE);
+        public void playPause(KeyEventType type) {
+            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PLAY_PAUSE);
         }
 
         @Override
-        public void nextTrack() {
-            simulateButton(KEYCODE_MEDIA_NEXT);
+        public void nextTrack(KeyEventType type) {
+            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_NEXT);
         }
 
         @Override
-        public void prevTrack() {
-            simulateButton(KEYCODE_MEDIA_PREVIOUS);
+        public void prevTrack(KeyEventType type) {
+            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PREVIOUS);
         }
 
         @Override
-        public void skipBackward() {
-//            simulateButton(KEYCODE_MEDIA_REWIND);
+        public void skipBackward(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             getPrimaryMediaSession().ifPresent(session -> {
                 if (session.getPlaybackState() == null) {
                     session.getTransportControls().rewind();
@@ -398,8 +413,8 @@ public class NotificationInputService extends NotificationListenerService {
         }
 
         @Override
-        public void skipForward() {
-//            simulateButton(KEYCODE_MEDIA_FAST_FORWARD);
+        public void skipForward(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             getPrimaryMediaSession().ifPresent(session -> {
                 if (session.getPlaybackState() == null) {
                     session.getTransportControls().fastForward();
@@ -409,11 +424,6 @@ public class NotificationInputService extends NotificationListenerService {
                 long targetPos = pos + 10000;
                 session.getTransportControls().seekTo(targetPos);
             });
-        }
-
-        @Override
-        public void destroy() {
-
         }
     }
 

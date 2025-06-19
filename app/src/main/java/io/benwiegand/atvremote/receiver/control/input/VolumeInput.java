@@ -1,17 +1,12 @@
 package io.benwiegand.atvremote.receiver.control.input;
 
-import java.util.Optional;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 
 public interface VolumeInput extends InputHandler {
-    void volumeUp();
-    void volumeDown();
+    void volumeUp(KeyEventType type);
+    void volumeDown(KeyEventType type);
 
-    /**
-     * empty if mute state unknown. In that case use toggleMute()
-     * @return Optional with the mute state, or Optional.empty() if unknown
-     */
-    Optional<Boolean> getMute();
-    void setMute(boolean muted);
-
-    void toggleMute();
+    void mute();
+    void unmute();
+    void toggleMute(KeyEventType type);
 }

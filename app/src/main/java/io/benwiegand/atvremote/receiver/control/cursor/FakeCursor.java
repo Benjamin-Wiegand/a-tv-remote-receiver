@@ -17,8 +17,10 @@ import androidx.appcompat.content.res.AppCompatResources;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
+import io.benwiegand.atvremote.receiver.stuff.Destroyable;
 
-public abstract class FakeCursor implements CursorInput {
+public abstract class FakeCursor implements CursorInput, Destroyable {
     private static final String TAG = FakeCursor.class.getSimpleName();
     private static final long HIDE_CURSOR_AFTER = 10000;
     private static final long HIDE_CURSOR_POLL_INTERVAL = 1000;
@@ -151,38 +153,17 @@ public abstract class FakeCursor implements CursorInput {
     }
 
     @Override
-    public void cursorDown() {
+    public void leftClick(KeyEventType type) {
         keepCursorVisible();
 
         handler.post(() -> {
             synchronized (cursorLock) {
                 if (overlayView == null) return;
-                handleMouseDownLocked();
-            }
-        });
-
-    }
-
-    @Override
-    public void cursorUp() {
-        keepCursorVisible();
-
-        handler.post(() -> {
-            synchronized (cursorLock) {
-                if (overlayView == null) return;
-                handleMouseUpLocked();
-            }
-        });
-    }
-
-    @Override
-    public void cursorClick() {
-        keepCursorVisible();
-
-        handler.post(() -> {
-            synchronized (cursorLock) {
-                if (overlayView == null) return;
-                handleMouseClickLocked();
+                switch (type) {
+                    case CLICK -> handleMouseClickLocked();
+                    case DOWN -> handleMouseDownLocked();
+                    case UP -> handleMouseUpLocked();
+                }
             }
         });
     }
