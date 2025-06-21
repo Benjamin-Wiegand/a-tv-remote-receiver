@@ -64,7 +64,19 @@
             android:id="@+id/switch_ime_keyboard_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="switch ime" />
+            android:text="ime switcher" />
+
+        <Button
+            android:id="@+id/set_ime_keyboard_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="set ime" />
+
+        <Button
+            android:id="@+id/test_ime_dpad_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="test ime dpad" />
 
         <EditText
             android:id="@+id/some_text_box"

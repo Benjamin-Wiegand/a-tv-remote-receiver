@@ -757,6 +757,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.R)
+        public void switchToIme() {
+            if (imeDirectionalPadInput != null) Log.d(TAG, "ime dpad present");
+            getImeDpad();
+        }
+
         public void showDebugOverlay() {
             if (debugOverlay != null) return;
             debugOverlay = new DebugOverlay(AccessibilityInputService.this);

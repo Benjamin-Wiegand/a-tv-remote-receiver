@@ -5,6 +5,7 @@ import android.annotation.SuppressLint;
 import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
@@ -28,9 +29,11 @@ import java.util.UUID;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
+import io.benwiegand.atvremote.receiver.control.IMEInputService;
 import io.benwiegand.atvremote.receiver.control.NotificationInputService;
 import io.benwiegand.atvremote.receiver.network.TVRemoteConnection;
 import io.benwiegand.atvremote.receiver.network.TVRemoteServer;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 
 public class DebugActivity extends AppCompatActivity {
@@ -40,6 +43,7 @@ public class DebugActivity extends AppCompatActivity {
     private final MakeshiftServiceConnection debugServiceConnection = new DebugServiceConnection();
 
     private TVRemoteServer.ServerBinder serverBinder = null;
+    private IMEInputService.ServiceBinder imeBinder = null;
 
     @SuppressLint({"InlinedApi"})
     @Override
@@ -93,6 +97,31 @@ public class DebugActivity extends AppCompatActivity {
             imm.showInputMethodPicker();
         });
 
+        findViewById(R.id.set_ime_keyboard_button).setOnClickListener(v -> {
+            if (binder == null) {
+                Log.e(TAG, "no accessibility binder");
+                Toast.makeText(this, "no accessibility binder", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
+                Log.e(TAG, "set ime not supported on your api level");
+                Toast.makeText(this, "set ime not supported on your api level", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            binder.switchToIme();
+        });
+
+        findViewById(R.id.test_ime_dpad_button).setOnClickListener(v -> {
+            if (imeBinder == null) {
+                Log.e(TAG, "no ime binder");
+                Toast.makeText(this, "no ime binder, did you select the ime?", Toast.LENGTH_SHORT).show();
+                return;
+            }
+
+            imeBinder.getDirectionalPadInput().dpadDown(KeyEventType.CLICK);
+            Toast.makeText(this, "dpadDown()", Toast.LENGTH_SHORT).show();
+        });
+
         findViewById(R.id.update_debug_info_button).setOnClickListener(v -> {
             TextView debugInfoText = findViewById(R.id.debug_info_text);
 
@@ -144,6 +173,7 @@ public class DebugActivity extends AppCompatActivity {
         });
 
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), debugServiceConnection);
+        MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), debugServiceConnection);
     }
 
     private void tryActivityIntents(Intent... intents) {
@@ -174,7 +204,10 @@ public class DebugActivity extends AppCompatActivity {
                 binder = (AccessibilityInputService.AccessibilityInputHandler) service;
             } else if (name.equals(new ComponentName(DebugActivity.this, TVRemoteServer.class))) {
                 serverBinder = (TVRemoteServer.ServerBinder) service;
+            } else if (name.equals(new ComponentName(DebugActivity.this, IMEInputService.class))) {
+                imeBinder = (IMEInputService.ServiceBinder) service;
             }
+
         }
 
         @Override
