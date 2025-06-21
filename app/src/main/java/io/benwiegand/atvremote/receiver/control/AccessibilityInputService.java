@@ -615,21 +615,25 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void navHome(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             performGlobalAction(GLOBAL_ACTION_HOME);
         }
 
         @Override
         public void navBack(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             performGlobalAction(GLOBAL_ACTION_BACK);
         }
 
         @Override
         public void navRecent(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             performGlobalAction(GLOBAL_ACTION_RECENTS);
         }
 
         @Override
         public void navNotifications(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
             performGlobalAction(GLOBAL_ACTION_NOTIFICATIONS);
         }
 
