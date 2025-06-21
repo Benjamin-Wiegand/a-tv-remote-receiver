@@ -35,7 +35,10 @@ import io.benwiegand.atvremote.receiver.protocol.OperationDefinition;
 import io.benwiegand.atvremote.receiver.protocol.PairingData;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
 import io.benwiegand.atvremote.receiver.protocol.RemoteProtocolException;
+import io.benwiegand.atvremote.receiver.protocol.json.CommitTextParams;
+import io.benwiegand.atvremote.receiver.protocol.json.DeleteTextParams;
 import io.benwiegand.atvremote.receiver.protocol.json.ErrorDetails;
+import io.benwiegand.atvremote.receiver.protocol.json.KeyEventParams;
 import io.benwiegand.atvremote.receiver.protocol.json.ReceiverDeviceMeta;
 import io.benwiegand.atvremote.receiver.protocol.json.RemoteDeviceMeta;
 import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
@@ -389,6 +392,22 @@ public class TVRemoteConnection implements Closeable {
                         case EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS -> controlScheme.getActivityLauncherInput().launchActivity(LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
                         default -> throw new RemoteProtocolException(R.string.protocol_error_extra_button_no_such_button, "no such button: " + extra);
                     }
+                }),
+
+                new OperationDefinition(OP_COMMIT_TEXT, extra -> {
+                    CommitTextParams commitText = gson.fromJson(extra, CommitTextParams.class);
+                    boolean result = controlScheme.getKeyboardInput().commitText(commitText.text(), commitText.newCursorPosition());
+                    return String.valueOf(result);
+                }),
+                new OperationDefinition(OP_DELETE_TEXT, extra -> {
+                    DeleteTextParams deleteText = gson.fromJson(extra, DeleteTextParams.class);
+                    boolean result = controlScheme.getKeyboardInput().deleteSurroundingText(deleteText.before(), deleteText.after());
+                    return String.valueOf(result);
+                }),
+                new OperationDefinition(OP_KEY_EVENT, extra -> {
+                    KeyEventParams keyEvent = gson.fromJson(extra, KeyEventParams.class);
+                    boolean result = controlScheme.getKeyboardInput().sendKeyEvent(keyEvent.keyCode(), keyEvent.type());
+                    return String.valueOf(result);
                 }),
 
                 new OperationDefinition(OP_EVENT_STREAM_SUBSCRIBE, extra -> {

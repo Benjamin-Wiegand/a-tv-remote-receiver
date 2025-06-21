@@ -66,6 +66,11 @@ public class ProtocolConstants {
 
     public static final String OP_EXTRA_BUTTON = "EXTRA_BUTTON";
 
+    // keyboard
+    public static final String OP_COMMIT_TEXT = "TEXT";
+    public static final String OP_DELETE_TEXT = "DEL_TEXT";
+    public static final String OP_KEY_EVENT = "KEY";
+
     // event stream subscriptions
     public static final String OP_EVENT_STREAM_SUBSCRIBE = "SUBSCRIBE";
     public static final String OP_EVENT_STREAM_UNSUBSCRIBE = "UNSUBSCRIBE";
