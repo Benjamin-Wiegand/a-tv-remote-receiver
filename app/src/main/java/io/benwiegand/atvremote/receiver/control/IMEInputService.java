@@ -14,9 +14,17 @@ import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodManager;
+import android.view.inputmethod.SurroundingText;
+
+import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
+import io.benwiegand.atvremote.receiver.control.input.MediaInput;
+import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
+import io.benwiegand.atvremote.receiver.protocol.json.SurroundingTextResponse;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
 
@@ -27,10 +35,20 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     private MakeshiftBind makeshiftBind = null;
     private final IBinder binder = new ServiceBinder();
+
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
+    private final VolumeInput volumeInput = new VolumeInputHandler();
+    private final KeyboardInput keyboardInput = new KeyboardInputHandler();
+    private final MediaInput mediaInput = new MediaInputHandler();
+
     private final Handler handler = new Handler(Looper.getMainLooper());
 
     private View view = null;
+
+    /**
+     * this is currently ignored on api <30 unless I figure out a secure settings workaround
+     */
+    private boolean switchToSoftKeyboardOnOpen = true;
 
     @Override
     public void onCreate() {
@@ -59,28 +77,37 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         super.onBindInput();
     }
 
-    public boolean simulateKeystroke(int keyCode, boolean longPress) {
-        Log.v(TAG, "simulating keystroke: " + keyCode);
-
+    private Optional<InputConnection> getOptionalInputConnection() {
         InputConnection inputConnection = getCurrentInputConnection();
-        if (inputConnection == null) {
-            Log.e(TAG, "IME not connected");
-            return false;
-        }
+        if (inputConnection == null) Log.e(TAG, "IME not connected");
+        return Optional.ofNullable(inputConnection);
+    }
 
-        // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
-        boolean down = inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+    public boolean simulateKeystroke(KeyEventType type, int keyCode) {
+        Log.v(TAG, "simulating keystroke: " + type + " " + keyCode);
+        return getOptionalInputConnection().map(inputConnection -> {
+            // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
+            if (type == KeyEventType.CLICK || type == KeyEventType.DOWN) {
+                if (!inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode))) {
+                    Log.e(TAG, "failed to send key event");
+                    return false;
+                }
+            }
 
-        Runnable doKeyUp = () -> {
-            boolean up = inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
-            if (down && !up) Log.w(TAG, "ACTION_DOWN sent, but ACTION_UP failed");
-        };
+            if (type == KeyEventType.CLICK || type == KeyEventType.UP) {
+                if (!inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode))) {
+                    Log.e(TAG, "keycode up failed!");
+                    return false;
+                }
+            }
 
-        if (longPress) {
-            handler.postDelayed(doKeyUp, LONG_PRESS_DURATION);
-        } else {
-            doKeyUp.run();
-        }
+            return true;
+        }).orElse(false);
+    }
+
+    private boolean simulateKeystrokeLongPress(int keyCode) {
+        boolean down = simulateKeystroke(KeyEventType.DOWN, keyCode);
+        handler.postDelayed(() -> simulateKeystroke(KeyEventType.UP, keyCode), LONG_PRESS_DURATION);
         return down;
     }
 
@@ -145,7 +172,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     @Override
     public View onCreateInputView() {
-        if (AccessibilityInputService.USES_IME_DPAD_ASSIST) {
+        if (switchToSoftKeyboardOnOpen && canSwitchInputMethodBack()) {
             // the accessibility service will be able to switch back to this input method when it's needed again
             switchToSoftKeyboard();
             return null;
@@ -164,54 +191,198 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         view = null;
     }
 
-    public boolean simulateKeystroke(int keyCode) {
-        return simulateKeystroke(keyCode, false);
+    /**
+     * determines if the input method can be switched back to this one without user confirmation if
+     * switched away. avoid automatically switching away if this returns false.
+     * currently the only criteria for this is api 30 or later.
+     * @return true if the input method can be switched back as described
+     */
+    private boolean canSwitchInputMethodBack() {
+        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
-
         @Override
-        public void dpadDown() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_DOWN);
+        public void dpadDown(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_DPAD_DOWN);
         }
 
         @Override
-        public void dpadUp() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_UP);
+        public void dpadUp(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_DPAD_UP);
         }
 
         @Override
-        public void dpadLeft() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_LEFT);
+        public void dpadLeft(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_DPAD_LEFT);
         }
 
         @Override
-        public void dpadRight() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_RIGHT);
+        public void dpadRight(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_DPAD_RIGHT);
         }
 
         @Override
-        public void dpadSelect() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_CENTER);
+        public void dpadSelect(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_DPAD_CENTER);
         }
 
         @Override
         public void dpadLongPress() {
-            simulateKeystroke(KeyEvent.KEYCODE_DPAD_CENTER, true);
+            simulateKeystrokeLongPress(KeyEvent.KEYCODE_DPAD_CENTER);
+        }
+    }
+
+    public class VolumeInputHandler implements VolumeInput {
+        @Override
+        public void volumeUp(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_VOLUME_UP);
         }
 
         @Override
-        public void destroy() {
+        public void volumeDown(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_VOLUME_DOWN);
+        }
 
+        @Override
+        public void mute() {
+            toggleMute(KeyEventType.CLICK); // unsupported
+        }
+
+        @Override
+        public void unmute() {
+            toggleMute(KeyEventType.CLICK); // unsupported
+        }
+
+        @Override
+        public void toggleMute(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_VOLUME_MUTE);
+        }
+    }
+
+    public class KeyboardInputHandler implements KeyboardInput {
+        @Override
+        public void setSoftKeyboardEnabled(boolean enabled) {
+            switchToSoftKeyboardOnOpen = enabled;
+        }
+
+        @Override
+        public boolean commitText(String input, int newCursorPosition) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> inputConnection.commitText(input, newCursorPosition))
+                    .orElse(false);
+        }
+
+        @Override
+        public SurroundingTextResponse getSurroundingText(int beforeLength, int afterLength) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                            SurroundingText surroundingText = inputConnection.getSurroundingText(beforeLength, afterLength, 0);
+                            if (surroundingText == null) return null;
+                            return new SurroundingTextResponse(surroundingText);
+                        }
+
+                        CharSequence textBefore = inputConnection.getTextBeforeCursor(beforeLength, 0);
+                        if (textBefore == null) return null;
+                        CharSequence textAfter = inputConnection.getTextAfterCursor(afterLength, 0);
+                        if (textAfter == null) return null;
+                        CharSequence selectedText = inputConnection.getSelectedText(0);
+                        if (selectedText == null) selectedText = "";
+                        String text = textBefore.toString() + selectedText + textAfter;
+
+                        return new SurroundingTextResponse(textBefore.length(), textBefore.length() + selectedText.length(), -1, text);
+                    })
+                    .orElse(null);
+        }
+
+        @Override
+        public boolean setSelection(int start, int end) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> inputConnection.setSelection(start, end))
+                    .orElse(false);
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> inputConnection.deleteSurroundingText(beforeLength, afterLength))
+                    .orElse(false);
+        }
+
+        @Override
+        public boolean performContextMenuAction(int id) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> inputConnection.performContextMenuAction(id))
+                    .orElse(false);
+        }
+
+        @Override
+        public boolean performEditorAction(int id) {
+            return getOptionalInputConnection()
+                    .map(inputConnection -> inputConnection.performEditorAction(id))
+                    .orElse(false);
+        }
+
+        @Override
+        public boolean sendKeyEvent(int keyCode, KeyEventType type) {
+            return simulateKeystroke(type, keyCode);
+        }
+    }
+
+    public class MediaInputHandler implements MediaInput {
+        @Override
+        public void playPause(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_PLAY_PAUSE);
+        }
+
+        @Override
+        public void pause(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_PAUSE);
+        }
+
+        @Override
+        public void play(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_PLAY);
+        }
+
+        @Override
+        public void nextTrack(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_NEXT);
+        }
+
+        @Override
+        public void prevTrack(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_PREVIOUS);
+        }
+
+        @Override
+        public void skipBackward(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_REWIND);
+        }
+
+        @Override
+        public void skipForward(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_MEDIA_FAST_FORWARD);
         }
     }
 
     public class ServiceBinder extends Binder {
-
         public DirectionalPadInput getDirectionalPadInput() {
             return directionalPadInput;
         }
 
+        public VolumeInput getVolumeInput() {
+            return volumeInput;
+        }
+
+        public KeyboardInput getKeyboardInput() {
+            return keyboardInput;
+        }
+
+        public MediaInput getMediaInput() {
+            return mediaInput;
+        }
     }
 
     public static String getInputMethodId(Context context) {

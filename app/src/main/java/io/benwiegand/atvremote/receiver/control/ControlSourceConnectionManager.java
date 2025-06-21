@@ -114,6 +114,8 @@ public class ControlSourceConnectionManager {
             // set control methods
             // todo
 //            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
+//            controlScheme.setVolumeInput(binder.getVolumeInput());
+            controlScheme.setKeyboardInput(binder.getKeyboardInput());
 
             onBind.accept(binder);
         }
@@ -123,6 +125,8 @@ public class ControlSourceConnectionManager {
             Log.w(TAG, "IMEInputService disconnected");
 
 //            controlScheme.setDirectionalPadInput(null);
+//            controlScheme.setVolumeInput(null);
+            controlScheme.setKeyboardInput(null);
         }
     }
 
