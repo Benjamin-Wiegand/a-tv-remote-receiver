@@ -269,7 +269,22 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         @Override
         public boolean commitText(String input, int newCursorPosition) {
             return getOptionalInputConnection()
-                    .map(inputConnection -> inputConnection.commitText(input, newCursorPosition))
+                    .map(inputConnection -> {
+                        if (newCursorPosition > 0) {
+                            for (char c : input.toCharArray()) {
+                                if (!inputConnection.commitText(String.valueOf(c), 1)) return false;
+                            }
+                            if (newCursorPosition == 1) return true;
+                        } else {
+                            char[] chars = input.toCharArray();
+                            for (int i = input.length() - 1; i >= 0; i--) {
+                                if (!inputConnection.commitText(String.valueOf(chars[i]), 0)) return false;
+                            }
+                            if (newCursorPosition == 0) return true;
+                        }
+
+                        return inputConnection.commitText("", newCursorPosition);
+                    })
                     .orElse(false);
         }
 
