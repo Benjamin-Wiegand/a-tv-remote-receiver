@@ -29,6 +29,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 import io.benwiegand.atvremote.receiver.R;
@@ -514,18 +515,31 @@ public class AccessibilityInputService extends AccessibilityService implements M
             if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
         }
 
+        private void imeDpadAssist(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation, Runnable fakeDpadOperation) {
+            getImeDpad().ifPresentOrElse(
+                    input -> {
+                        AccessibilityNodeInfo initialFocus = findFocusedNode();
+                        imeDpadOperation.accept(input, type);
+                        AccessibilityNodeInfo newFocus = findFocusedNode();
+                        if (type == KeyEventType.UP) return;
+                        if (Objects.equals(initialFocus, newFocus)) {
+                            Log.v(TAG, "ime breakage? falling back to fakeDpad()");
+                            fakeDpadOperation.run();
+                        }
+                    },
+                    () -> {
+                        if (type == KeyEventType.UP) return;
+                        fakeDpadOperation.run();
+                    });
+        }
+
         @Override
         public void dpadDown(KeyEventType type) {
             if (shouldUseFakeDpad()) {
                 if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_DOWN);
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(
-                        input -> input.dpadDown(type),
-                        () -> {
-                            if (type == KeyEventType.UP) return;
-                            fakeDpad(View.FOCUS_DOWN);
-                        });
+                imeDpadAssist(type, DirectionalPadInput::dpadDown, () -> fakeDpad(View.FOCUS_DOWN));
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
@@ -538,12 +552,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_UP);
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(
-                        input -> input.dpadUp(type),
-                        () -> {
-                            if (type == KeyEventType.UP) return;
-                            fakeDpad(View.FOCUS_UP);
-                        });
+                imeDpadAssist(type, DirectionalPadInput::dpadUp, () -> fakeDpad(View.FOCUS_UP));
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_UP);
@@ -556,12 +565,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_LEFT);
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(
-                        input -> input.dpadLeft(type),
-                        () -> {
-                            if (type == KeyEventType.UP) return;
-                            fakeDpad(View.FOCUS_LEFT);
-                        });
+                imeDpadAssist(type, DirectionalPadInput::dpadLeft, () -> fakeDpad(View.FOCUS_LEFT));
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
@@ -574,12 +578,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_RIGHT);
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(
-                        input -> input.dpadRight(type),
-                        () -> {
-                            if (type == KeyEventType.UP) return;
-                            fakeDpad(View.FOCUS_RIGHT);
-                        });
+                imeDpadAssist(type, DirectionalPadInput::dpadRight, () -> fakeDpad(View.FOCUS_RIGHT));
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
@@ -592,12 +591,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.UP) return;
                 fakeDpadSelect();
             } else if (USES_IME_DPAD_ASSIST) {
-                getImeDpad().ifPresentOrElse(
-                        input -> input.dpadSelect(type),
-                        () -> {
-                            if (type == KeyEventType.UP) return;
-                            fakeDpadSelect();
-                        });
+                imeDpadAssist(type, DirectionalPadInput::dpadSelect, () -> fakeDpadSelect());
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
