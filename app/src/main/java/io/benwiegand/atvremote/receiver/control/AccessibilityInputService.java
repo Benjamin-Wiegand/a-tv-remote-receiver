@@ -27,6 +27,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BiConsumer;
@@ -504,6 +505,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
+        private Semaphore imeDpadAssistLimiter = new Semaphore(1);
 
         private boolean shouldUseFakeDpad() {
             return USES_FAKE_DPAD ||
@@ -518,13 +520,23 @@ public class AccessibilityInputService extends AccessibilityService implements M
         private void imeDpadAssist(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation, Runnable fakeDpadOperation) {
             getImeDpad().ifPresentOrElse(
                     input -> {
-                        AccessibilityNodeInfo initialFocus = findFocusedNode();
-                        imeDpadOperation.accept(input, type);
-                        AccessibilityNodeInfo newFocus = findFocusedNode();
-                        if (type == KeyEventType.UP) return;
-                        if (Objects.equals(initialFocus, newFocus)) {
+                        // only one at a time
+                        boolean allowFallback = type != KeyEventType.UP && imeDpadAssistLimiter.tryAcquire();
+                        if (!allowFallback) {
+                            imeDpadOperation.accept(input, type);
+                            return;
+                        }
+
+                        try {
+                            AccessibilityNodeInfo initialFocus = findFocusedNode();
+                            imeDpadOperation.accept(input, type);
+                            AccessibilityNodeInfo newFocus = findFocusedNode();
+
+                            if (!Objects.equals(initialFocus, newFocus)) return;
                             Log.v(TAG, "ime breakage? falling back to fakeDpad()");
                             fakeDpadOperation.run();
+                        } finally {
+                            imeDpadAssistLimiter.release();
                         }
                     },
                     () -> {
