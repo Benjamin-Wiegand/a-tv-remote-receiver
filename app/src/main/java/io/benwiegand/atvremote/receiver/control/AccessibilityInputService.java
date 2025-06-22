@@ -591,7 +591,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.UP) return;
                 fakeDpadSelect();
             } else if (USES_IME_DPAD_ASSIST) {
-                imeDpadAssist(type, DirectionalPadInput::dpadSelect, () -> fakeDpadSelect());
+                getImeDpad().ifPresentOrElse(
+                        input -> input.dpadSelect(type),
+                        () -> {
+                            if (type == KeyEventType.UP) return;
+                            fakeDpadSelect();
+                        });
             } else {
                 if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
