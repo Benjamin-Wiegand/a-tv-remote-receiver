@@ -59,7 +59,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
      *     <li>there is no way to switch IME without user confirmation before api 30</li>
      * </ul>
      */
-    public static final boolean USES_FAKE_DPAD = Build.VERSION.SDK_INT < Build.VERSION_CODES.R;
+    public static final boolean USES_FAKE_DPAD = false;
 
     /**
      * fake dpad can be avoided on api 30, 31, and 32 by leveraging the IME input and switching
@@ -466,32 +466,37 @@ public class AccessibilityInputService extends AccessibilityService implements M
             Log.w(TAG, "focus action failed");
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.R)
     private Optional<DirectionalPadInput> getImeDpad() {
         DirectionalPadInput directionalPadInput = imeDirectionalPadInput;
         if (directionalPadInput != null) return Optional.of(directionalPadInput);
 
         String imeId = IMEInputService.getInputMethodId(this);
 
-        boolean switchResult = getSoftKeyboardController().switchToInputMethod(imeId);
-        if (switchResult) return Optional.empty(); //todo: try to figrue something out to avoid dropping a dpad input
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            boolean switchResult = getSoftKeyboardController().switchToInputMethod(imeId);
+            if (switchResult)
+                return Optional.empty(); //todo: try to figrue something out to avoid dropping a dpad input
 
-        InputMethodManager imm = getSystemService(InputMethodManager.class);
-        assert imm.getInputMethodList().stream()
-                .map(InputMethodInfo::getId)
-                .anyMatch(imeId::equals);
+            InputMethodManager imm = getSystemService(InputMethodManager.class);
+            assert imm.getInputMethodList().stream()
+                    .map(InputMethodInfo::getId)
+                    .anyMatch(imeId::equals);
 
-        boolean isEnabled = imm.getEnabledInputMethodList().stream()
-                .map(InputMethodInfo::getId)
-                .anyMatch(imeId::equals);
+            boolean isEnabled = imm.getEnabledInputMethodList().stream()
+                    .map(InputMethodInfo::getId)
+                    .anyMatch(imeId::equals);
 
-        if (isEnabled) {
-            Log.wtf(TAG, "input method is enabled, but the switch failed");
-            return Optional.empty();
+            if (isEnabled) {
+                Log.wtf(TAG, "input method is enabled, but the switch failed");
+                return Optional.empty();
+            }
+
+            // todo: ask user to enable input method
+            Log.e(TAG, "input method not enabled");
+        } else {
+            Log.d(TAG, "input method not selected");
         }
 
-        // todo: ask user to enable input method
-        Log.e(TAG, "input method not enabled");
 
         return Optional.empty();
 
