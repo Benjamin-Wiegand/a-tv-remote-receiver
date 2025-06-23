@@ -33,11 +33,25 @@ public class ControlSourceConnectionManager {
 
         String accessibilityServiceException = context.getString(R.string.control_source_not_loaded_accessibility);
         String notificationServiceException = context.getString(R.string.control_source_not_loaded_notification_listener);
+
+        String imeDisabledServiceException = context.getString(R.string.control_source_not_loaded_enable_ime);
+        String imeInactiveServiceException = context.getString(R.string.control_source_not_loaded_switch_to_ime);
+
+        // todo
+        boolean imeEnabled = false;
+        try {
+            imeEnabled = IMEInputService.isEnabled(context);
+        } catch (Throwable t) {
+            Log.e(TAG, "failed to determine if input method is enabled", t);
+        }
+
+        String imeServiceException = imeEnabled ? imeInactiveServiceException : imeDisabledServiceException;
+
         ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
                 accessibilityServiceException,
                 accessibilityServiceException,
                 accessibilityServiceException,
-                "not implemented",
+                imeServiceException,
                 notificationServiceException,
                 accessibilityServiceException,
                 "not implemented",

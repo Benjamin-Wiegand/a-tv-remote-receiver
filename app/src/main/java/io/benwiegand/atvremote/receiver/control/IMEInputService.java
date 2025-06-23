@@ -13,6 +13,7 @@ import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputConnection;
+import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
 
@@ -402,6 +403,22 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     public static String getInputMethodId(Context context) {
         return new ComponentName(context, IMEInputService.class).flattenToShortString();
+    }
+
+    public static boolean isEnabled(Context context, InputMethodManager imm) {
+        String imeId = getInputMethodId(context);
+        assert imm.getInputMethodList().stream()
+                .map(InputMethodInfo::getId)
+                .anyMatch(imeId::equals);
+
+        return imm.getEnabledInputMethodList().stream()
+                .map(InputMethodInfo::getId)
+                .anyMatch(imeId::equals);
+
+    }
+
+    public static boolean isEnabled(Context context) {
+        return isEnabled(context, context.getSystemService(InputMethodManager.class));
     }
 
 }

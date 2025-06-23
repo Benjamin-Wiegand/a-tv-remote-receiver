@@ -46,6 +46,7 @@
         It is used to:\n
         - allow you to navigate your TV interface\n
         - display the pairing dialog\n
+        - seamlessly switch to and from a simulated keyboard for better navigation on older TVs\n
         \n
         Open the receiver app on your TV for more information.
     </string>
@@ -55,6 +56,28 @@
         It is used to:\n
         - allow you to control media playback\n
         - display information about currently playing media\n
+        \n
+        Open the receiver app on your TV for more information.
+    </string>
+    <string name="control_source_not_loaded_enable_ime">
+        Please enable \"A TV Remote Keyboard\" in your TV settings.\n
+        \n
+        It is used to:\n
+        - let you send text to type on your TV\n
+        - simulate keyboard buttons\n
+        - assist with UI navigation on older TVs\n
+        - simulate system-wide media keys\n
+        \n
+        Open the receiver app on your TV for more information.
+    </string>
+    <string name="control_source_not_loaded_switch_to_ime">
+        Please switch to \"A TV Remote Keyboard\" in your TV settings.\n
+        \n
+        It is used to:\n
+        - let you send text to type on your TV\n
+        - simulate keyboard buttons\n
+        - assist with UI navigation on older TVs\n
+        - simulate system-wide media keys\n
         \n
         Open the receiver app on your TV for more information.
     </string>

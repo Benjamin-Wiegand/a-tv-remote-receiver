@@ -479,16 +479,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
             if (switchResult)
                 return Optional.empty(); //todo: try to figrue something out to avoid dropping a dpad input
 
-            InputMethodManager imm = getSystemService(InputMethodManager.class);
-            assert imm.getInputMethodList().stream()
-                    .map(InputMethodInfo::getId)
-                    .anyMatch(imeId::equals);
-
-            boolean isEnabled = imm.getEnabledInputMethodList().stream()
-                    .map(InputMethodInfo::getId)
-                    .anyMatch(imeId::equals);
-
-            if (isEnabled) {
+            if (IMEInputService.isEnabled(this)) {
                 Log.wtf(TAG, "input method is enabled, but the switch failed");
                 return Optional.empty();
             }
