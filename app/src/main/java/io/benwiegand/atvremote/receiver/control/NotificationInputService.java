@@ -65,6 +65,7 @@ import io.benwiegand.atvremote.receiver.protocol.json.MediaStateEvent;
 import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
 import io.benwiegand.atvremote.receiver.protocol.stream.OutgoingStateEventStream;
 import io.benwiegand.atvremote.receiver.stuff.AnonymousUUIDTranslator;
+import io.benwiegand.atvremote.receiver.stuff.FakeKeyDownUpHandler;
 
 public class NotificationInputService extends NotificationListenerService {
     private static final String TAG = NotificationInputService.class.getSimpleName();
@@ -357,6 +358,8 @@ public class NotificationInputService extends NotificationListenerService {
         return true;
     }
 
+    // some apps handle media session key events differently and undesirably, so key up/down events
+    // aren't directly forwarded for all keys
     public class MediaInputHandler implements MediaInput {
         public void simulateButton(KeyEventType type, int keyCode) {
             getPrimaryMediaSession().ifPresent(mediaController -> {
@@ -367,33 +370,34 @@ public class NotificationInputService extends NotificationListenerService {
             });
         }
 
+        private final FakeKeyDownUpHandler fakePlayPauseButtonHandler = new FakeKeyDownUpHandler(
+                () -> simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PLAY_PAUSE),
+                true);
+
         @Override
         public void pause(KeyEventType type) {
-            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
-            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PAUSE);
+            simulateButton(type, KEYCODE_MEDIA_PAUSE);
         }
 
         @Override
         public void play(KeyEventType type) {
-            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
-            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PLAY);
+            simulateButton(type, KEYCODE_MEDIA_PLAY);
         }
 
         @Override
         public void playPause(KeyEventType type) {
-            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
-            simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PLAY_PAUSE);
+            fakePlayPauseButtonHandler.onKeyEvent(type);
         }
 
         @Override
         public void nextTrack(KeyEventType type) {
-            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            if (type == KeyEventType.DOWN) return;
             simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_NEXT);
         }
 
         @Override
         public void prevTrack(KeyEventType type) {
-            if (type == KeyEventType.UP) return;    // not forwarding up/down due to possible race condition on primary media session change
+            if (type == KeyEventType.DOWN) return;
             simulateButton(KeyEventType.CLICK, KEYCODE_MEDIA_PREVIOUS);
         }
 
