@@ -3,6 +3,7 @@ package io.benwiegand.atvremote.receiver.control;
 import static android.content.Intent.FLAG_ACTIVITY_NEW_TASK;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.InputMethod;
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Intent;
@@ -12,10 +13,12 @@ import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.SurroundingText;
 
 import androidx.annotation.RequiresApi;
 
@@ -37,11 +40,13 @@ import io.benwiegand.atvremote.receiver.control.cursor.FakeCursor;
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
+import io.benwiegand.atvremote.receiver.protocol.json.SurroundingTextResponse;
 import io.benwiegand.atvremote.receiver.stuff.FakeKeyDownUpHandler;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
@@ -92,6 +97,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final NavigationInput navigationInput = new NavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final ActivityLauncherInput activityLauncherInput = new ActivityLauncherInputHandler();
+    private final KeyboardInput keyboardInput = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new KeyboardInputHandler() : null;
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
@@ -696,7 +702,83 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
-    // todo: add keyboard, media, scroll
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public class KeyboardInputHandler implements KeyboardInput {
+        private Optional<InputMethod.AccessibilityInputConnection> getOptionalInputConnection() {
+            InputMethod inputMethod = getInputMethod();
+            if (inputMethod == null) return Optional.empty();
+            return Optional.ofNullable(inputMethod.getCurrentInputConnection());
+        }
+
+        @Override
+        public void setSoftKeyboardEnabled(boolean enabled) {
+
+        }
+
+        @Override
+        public boolean commitText(String input, int newCursorPosition) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                inputConnection.commitText(input, newCursorPosition, null);
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public SurroundingTextResponse getSurroundingText(int beforeLength, int afterLength) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                SurroundingText surroundingText = inputConnection.getSurroundingText(beforeLength, afterLength, 0);
+                if (surroundingText == null) return null;
+                return new SurroundingTextResponse(surroundingText);
+            }).orElse(null);
+        }
+
+        @Override
+        public boolean setSelection(int start, int end) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                inputConnection.setSelection(start, end);
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public boolean deleteSurroundingText(int beforeLength, int afterLength) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                inputConnection.deleteSurroundingText(beforeLength, afterLength);
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public boolean performContextMenuAction(int id) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                inputConnection.performContextMenuAction(id);
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public boolean performEditorAction(int id) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                inputConnection.performEditorAction(id);
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public boolean sendKeyEvent(int keyCode, KeyEventType type) {
+            return getOptionalInputConnection().map(inputConnection -> {
+                if (type == KeyEventType.CLICK || type == KeyEventType.DOWN)
+                    inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode));
+
+                if (type == KeyEventType.CLICK || type == KeyEventType.UP)
+                    inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
+
+                return true;
+            }).orElse(false);
+        }
+    }
+
+    // todo: scroll
 
     public class OverlayOutputHandler implements OverlayOutput {
         @Override
@@ -802,6 +884,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         public ActivityLauncherInput getActivityLauncherInput() {
             return activityLauncherInput;
+        }
+
+        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+        public KeyboardInput getKeyboardInput() {
+            return keyboardInput;
         }
 
         public OverlayOutput getOverlayOutput() {
