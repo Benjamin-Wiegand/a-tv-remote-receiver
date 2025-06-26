@@ -70,6 +70,7 @@ public class ProtocolConstants {
     public static final String OP_COMMIT_TEXT = "TEXT";
     public static final String OP_DELETE_TEXT = "DEL_TEXT";
     public static final String OP_KEY_EVENT = "KEY";
+    public static final String OP_KEYBOARD_DEFAULT_EDITOR_ACTION = "KEYBOARD_ACTION_DEFAULT";
 
     // event stream subscriptions
     public static final String OP_EVENT_STREAM_SUBSCRIBE = "SUBSCRIBE";

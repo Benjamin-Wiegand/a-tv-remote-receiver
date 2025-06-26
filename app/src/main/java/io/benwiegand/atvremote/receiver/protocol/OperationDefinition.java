@@ -3,6 +3,7 @@ package io.benwiegand.atvremote.receiver.protocol;
 import io.benwiegand.atvremote.receiver.stuff.ThrowingConsumer;
 import io.benwiegand.atvremote.receiver.stuff.ThrowingFunction;
 import io.benwiegand.atvremote.receiver.stuff.ThrowingRunnable;
+import io.benwiegand.atvremote.receiver.stuff.ThrowingSupplier;
 
 public record OperationDefinition(String operation, ThrowingFunction<String, String> handler, boolean closeConnectionOnFailure) {
 
@@ -22,5 +23,9 @@ public record OperationDefinition(String operation, ThrowingFunction<String, Str
             handler.accept(e);
             return null;
         }, false);
+    }
+
+    public OperationDefinition(String operation, ThrowingSupplier<String> handler) {
+        this(operation, e -> handler.get(), false);
     }
 }

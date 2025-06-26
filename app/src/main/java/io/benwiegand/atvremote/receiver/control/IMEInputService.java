@@ -12,6 +12,7 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
@@ -271,6 +272,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         public boolean commitText(String input, int newCursorPosition) {
             return getOptionalInputConnection()
                     .map(inputConnection -> {
+                        // do it character by character because some apps (like youtube) don't like it all at once
                         if (newCursorPosition > 0) {
                             for (char c : input.toCharArray()) {
                                 if (!inputConnection.commitText(String.valueOf(c), 1)) return false;
@@ -343,6 +345,26 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         @Override
         public boolean sendKeyEvent(int keyCode, KeyEventType type) {
             return simulateKeystroke(type, keyCode);
+        }
+
+        @Override
+        public boolean performDefaultEditorAction() {
+            return getOptionalInputConnection().map(inputConnection -> {
+                EditorInfo editorInfo = getCurrentInputEditorInfo();
+                if (editorInfo == null) {
+                    Log.w(TAG, "no editor info, falling back to sendDefaultEditorAction()");
+                    return sendDefaultEditorAction(false);
+                }
+
+                int action = editorInfo.imeOptions & EditorInfo.IME_MASK_ACTION;
+                if (action == EditorInfo.IME_ACTION_NONE) return false;
+                if (action == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                    Log.d(TAG, "editor action unspecified");
+                    return false;
+                }
+
+                return inputConnection.performEditorAction(action);
+            }).orElse(false);
         }
     }
 

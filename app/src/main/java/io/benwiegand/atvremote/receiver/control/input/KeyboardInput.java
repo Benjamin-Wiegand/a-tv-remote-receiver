@@ -16,4 +16,6 @@ public interface KeyboardInput extends InputHandler {
     boolean performEditorAction(int id);
     boolean sendKeyEvent(int keyCode, KeyEventType type);
 
+    boolean performDefaultEditorAction();
+
 }

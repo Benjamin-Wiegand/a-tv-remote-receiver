@@ -18,6 +18,7 @@ import android.view.View;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
+import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.SurroundingText;
 
 import androidx.annotation.RequiresApi;
@@ -704,10 +705,13 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public class KeyboardInputHandler implements KeyboardInput {
+        private Optional<InputMethod> getOptionalInputMethod() {
+            return Optional.ofNullable(getInputMethod());
+        }
+
         private Optional<InputMethod.AccessibilityInputConnection> getOptionalInputConnection() {
-            InputMethod inputMethod = getInputMethod();
-            if (inputMethod == null) return Optional.empty();
-            return Optional.ofNullable(inputMethod.getCurrentInputConnection());
+            return getOptionalInputMethod()
+                    .map(InputMethod::getCurrentInputConnection);
         }
 
         @Override
@@ -773,6 +777,25 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 if (type == KeyEventType.CLICK || type == KeyEventType.UP)
                     inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
 
+                return true;
+            }).orElse(false);
+        }
+
+        @Override
+        public boolean performDefaultEditorAction() {
+            return getOptionalInputMethod().map(inputMethod -> {
+                InputMethod.AccessibilityInputConnection inputConnection = inputMethod.getCurrentInputConnection();
+                EditorInfo editorInfo = inputMethod.getCurrentInputEditorInfo();
+                if (inputConnection == null || editorInfo == null) return false;
+
+                int action = editorInfo.imeOptions & EditorInfo.IME_MASK_ACTION;
+                if (action == EditorInfo.IME_ACTION_NONE) return false;
+                if (action == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                    Log.d(TAG, "editor action unspecified");
+                    return false;
+                }
+
+                inputConnection.performEditorAction(action);
                 return true;
             }).orElse(false);
         }

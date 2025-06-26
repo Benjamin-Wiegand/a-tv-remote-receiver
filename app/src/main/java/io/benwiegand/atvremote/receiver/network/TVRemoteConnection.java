@@ -409,6 +409,10 @@ public class TVRemoteConnection implements Closeable {
                     boolean result = controlScheme.getKeyboardInput().sendKeyEvent(keyEvent.keyCode(), keyEvent.type());
                     return String.valueOf(result);
                 }),
+                new OperationDefinition(OP_KEYBOARD_DEFAULT_EDITOR_ACTION, () -> {
+                    boolean result = controlScheme.getKeyboardInput().performDefaultEditorAction();
+                    return String.valueOf(result);
+                }),
 
                 new OperationDefinition(OP_EVENT_STREAM_SUBSCRIBE, extra -> {
                     if (extra == null) throw new MalformedEventException("no event type specified");
