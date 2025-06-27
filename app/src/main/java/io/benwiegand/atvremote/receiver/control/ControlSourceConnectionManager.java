@@ -4,12 +4,24 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
+import androidx.annotation.StringRes;
+
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
+import io.benwiegand.atvremote.receiver.control.input.CursorInput;
+import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
+import io.benwiegand.atvremote.receiver.control.input.MediaInput;
+import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
+import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 
 public class ControlSourceConnectionManager {
@@ -27,39 +39,69 @@ public class ControlSourceConnectionManager {
     private final Object deathLock = new Object();
     private boolean dead = false;
 
+    private final Object inputLock = new Object();
+
+    private ActivityLauncherInput accessibilityActivityLauncherInput = null;
+    private CursorInput accessibilityFakeCursorInput = null;
+    private DirectionalPadInput accessibilityDirectionalPadInput = null;
+    private KeyboardInput accessibilityKeyboardInput = null;
+    private NavigationInput accessibilityNavigationInput = null;
+    private VolumeInput accessibilityVolumeInput = null;
+    private OverlayOutput accessibilityOverlayOutput = null;
+
+    private MediaInput notificationListenerMediaInput = null;
+
+    private DirectionalPadInput imeDirectionalPadInput = null;
+    private KeyboardInput imeKeyboardInput = null;
+    private MediaInput imeMediaInput = null;
+    private VolumeInput imeVolumeInput = null;
+
     public ControlSourceConnectionManager(Context context, Consumer<IBinder> onBind) {
         this.context = context;
         this.onBind = onBind;
 
-        String accessibilityServiceException = context.getString(R.string.control_source_not_loaded_accessibility);
-        String notificationServiceException = context.getString(R.string.control_source_not_loaded_notification_listener);
-
-        String imeDisabledServiceException = context.getString(R.string.control_source_not_loaded_enable_ime);
-        String imeInactiveServiceException = context.getString(R.string.control_source_not_loaded_switch_to_ime);
-
-        // todo
-        boolean imeEnabled = false;
-        try {
-            imeEnabled = IMEInputService.isEnabled(context);
-        } catch (Throwable t) {
-            Log.e(TAG, "failed to determine if input method is enabled", t);
-        }
-
-        String imeServiceException = imeEnabled ? imeInactiveServiceException : imeDisabledServiceException;
-
-        ControlSourceErrors controlSourceErrors = new ControlSourceErrors(
-                accessibilityServiceException,
-                accessibilityServiceException,
-                accessibilityServiceException,
-                imeServiceException,
-                notificationServiceException,
-                accessibilityServiceException,
-                "not implemented",
-                accessibilityServiceException,
-                accessibilityServiceException
+        // todo: replace these exception messages when the ui is finished
+        controlScheme = new ControlScheme(
+                () -> lockForControls(() -> accessibilityActivityLauncherInput, R.string.control_source_not_loaded_accessibility),
+                () -> lockForControls(() -> accessibilityFakeCursorInput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityDirectionalPadInput != null) return accessibilityDirectionalPadInput;
+                        if (imeDirectionalPadInput != null) return imeDirectionalPadInput;
+                    }
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
+                () -> {
+                    synchronized (inputLock) {
+                        if (imeKeyboardInput != null) return imeKeyboardInput;
+                        if (accessibilityKeyboardInput != null) return accessibilityKeyboardInput;
+                    }
+                    throw new ControlNotInitializedException(getImeServiceExceptionText());
+                },
+                () -> {
+                    synchronized (inputLock) {
+                        if (imeMediaInput != null) return imeMediaInput;
+                        if (notificationListenerMediaInput != null) return notificationListenerMediaInput;
+                    }
+                    throw new ControlNotInitializedException(getImeServiceExceptionText());
+                },
+                () -> lockForControls(() -> accessibilityNavigationInput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    throw new ControlNotInitializedException("not implemented");
+                },
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityVolumeInput != null) return accessibilityVolumeInput;
+                        if (imeVolumeInput != null) return imeVolumeInput;
+                    }
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
+                () -> {
+                    synchronized (inputLock) {
+                        return accessibilityOverlayOutput;
+                    }
+                }
         );
-
-        controlScheme = new ControlScheme(controlSourceErrors);
 
         // "bind" accessibility service
         MakeshiftServiceConnection.bindService(context, new ComponentName(context, AccessibilityInputService.class), accessibilityInputServiceConnection);
@@ -86,6 +128,30 @@ public class ControlSourceConnectionManager {
         return controlScheme;
     }
 
+    private <T extends ControlHandler> T lockForControls(Supplier<T> supplier, @StringRes int exceptionMessage) {
+        T controlHandler;
+        synchronized (inputLock) {
+            controlHandler = supplier.get();
+        }
+        if (controlHandler == null)
+            throw new ControlNotInitializedException(context.getString(exceptionMessage));
+        return controlHandler;
+    }
+
+    private String getImeServiceExceptionText() {
+        String imeDisabledServiceException = context.getString(R.string.control_source_not_loaded_enable_ime);
+        String imeInactiveServiceException = context.getString(R.string.control_source_not_loaded_switch_to_ime);
+
+        boolean imeEnabled = false;
+        try {
+            imeEnabled = IMEInputService.isEnabled(context);
+        } catch (Throwable t) {
+            Log.e(TAG, "failed to determine if input method is enabled", t);
+        }
+
+        return imeEnabled ? imeInactiveServiceException : imeDisabledServiceException;
+    }
+
     private class AccessibilityInputServiceConnection extends MakeshiftServiceConnection {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
@@ -94,13 +160,18 @@ public class ControlSourceConnectionManager {
             AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) service;
 
             // set accessibility control methods
-            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
-            controlScheme.setNavigationInput(binder.getNavigationInput());
-            controlScheme.setCursorInput(binder.getCursorInput());
-            controlScheme.setVolumeInput(binder.getVolumeInput());
-            controlScheme.setActivityLauncherInput(binder.getActivityLauncherInput());
+            synchronized (inputLock) {
+                accessibilityDirectionalPadInput = binder.getDirectionalPadInput();
+                accessibilityNavigationInput = binder.getNavigationInput();
+                accessibilityFakeCursorInput = binder.getCursorInput();
+                accessibilityVolumeInput = binder.getVolumeInput();
+                accessibilityActivityLauncherInput = binder.getActivityLauncherInput();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    accessibilityKeyboardInput = binder.getKeyboardInput();
+                }
 
-            controlScheme.setOverlayOutput(binder.getOverlayOutput());
+                accessibilityOverlayOutput = binder.getOverlayOutput();
+            }
 
             onBind.accept(binder);
         }
@@ -109,12 +180,15 @@ public class ControlSourceConnectionManager {
         public void onServiceDisconnected(ComponentName name) {
             Log.w(TAG, "AccessibilityInputService disconnected");
 
-            controlScheme.setDirectionalPadInput(null);
-            controlScheme.setNavigationInput(null);
-            controlScheme.setCursorInput(null);
-            controlScheme.setVolumeInput(null);
-            controlScheme.setActivityLauncherInput(null);
-            controlScheme.setOverlayOutput(null);
+            synchronized (inputLock) {
+                accessibilityDirectionalPadInput = null;
+                accessibilityNavigationInput = null;
+                accessibilityFakeCursorInput = null;
+                accessibilityVolumeInput = null;
+                accessibilityActivityLauncherInput = null;
+                accessibilityKeyboardInput = null;
+                accessibilityOverlayOutput = null;
+            }
         }
     }
 
@@ -126,10 +200,12 @@ public class ControlSourceConnectionManager {
             IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
 
             // set control methods
-            // todo
-//            controlScheme.setDirectionalPadInput(binder.getDirectionalPadInput());
-//            controlScheme.setVolumeInput(binder.getVolumeInput());
-            controlScheme.setKeyboardInput(binder.getKeyboardInput());
+            synchronized (inputLock) {
+                imeDirectionalPadInput = binder.getDirectionalPadInput();
+                imeVolumeInput = binder.getVolumeInput();
+                imeKeyboardInput = binder.getKeyboardInput();
+                imeMediaInput = binder.getMediaInput();
+            }
 
             onBind.accept(binder);
         }
@@ -138,9 +214,12 @@ public class ControlSourceConnectionManager {
         public void onServiceDisconnected(ComponentName name) {
             Log.w(TAG, "IMEInputService disconnected");
 
-//            controlScheme.setDirectionalPadInput(null);
-//            controlScheme.setVolumeInput(null);
-            controlScheme.setKeyboardInput(null);
+            synchronized (inputLock) {
+                imeDirectionalPadInput = null;
+                imeVolumeInput = null;
+                imeKeyboardInput = null;
+                imeMediaInput = null;
+            }
         }
     }
 
@@ -166,14 +245,21 @@ public class ControlSourceConnectionManager {
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.i(TAG, "NotificationInputService connected");
             NotificationInputService.ServiceBinder binder = (NotificationInputService.ServiceBinder) service;
-            controlScheme.setMediaInput(binder.getMediaInput());
+
+            synchronized (inputLock) {
+                notificationListenerMediaInput = binder.getMediaInput();
+            }
+
             onBind.accept(binder);
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             Log.w(TAG, "NotificationInputService disconnected");
-            controlScheme.setMediaInput(null);
+
+            synchronized (inputLock) {
+                notificationListenerMediaInput = null;
+            }
         }
 
         @Override

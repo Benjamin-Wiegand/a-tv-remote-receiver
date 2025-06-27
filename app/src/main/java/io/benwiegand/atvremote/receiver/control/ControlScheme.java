@@ -22,111 +22,69 @@ import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 //  - I do my own android tv 15 builds, it might be nice to also have everything doable as a system app
 public class ControlScheme {
     // input
-    private ActivityLauncherInput activityLauncherInput = null;
-    private CursorInput cursorInput = null;
-    private DirectionalPadInput directionalPadInput = null;
-    private KeyboardInput keyboardInput = null;
-    private MediaInput mediaInput = null;
-    private NavigationInput navigationInput = null;
-    private ScrollInput scrollInput = null;
-    private VolumeInput volumeInput = null;
+    private final ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier;
+    private final ControlHandlerSupplier<CursorInput> cursorInputSupplier;
+    private final ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier;
+    private final ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier;
+    private final ControlHandlerSupplier<MediaInput> mediaInputSupplier;
+    private final ControlHandlerSupplier<NavigationInput> navigationInputSupplier;
+    private final ControlHandlerSupplier<ScrollInput> scrollInputSupplier;
+    private final ControlHandlerSupplier<VolumeInput> volumeInputSupplier;
     // todo: power (sleep and menu)
 
     // output
-    private OverlayOutput overlayOutput = null;
+    private final ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
 
-    private ControlSourceErrors controlSourceErrors;
-
-    public ControlScheme(ControlSourceErrors controlSourceErrors) {
-        this.controlSourceErrors = controlSourceErrors;
-    }
-
-    public void setControlSourceExceptions(ControlSourceErrors controlSourceErrors) {
-        this.controlSourceErrors = controlSourceErrors;
+    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<NavigationInput> navigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier) {
+        this.activityLauncherInputSupplier = activityLauncherInputSupplier;
+        this.cursorInputSupplier = cursorInputSupplier;
+        this.directionalPadInputSupplier = directionalPadInputSupplier;
+        this.keyboardInputSupplier = keyboardInputSupplier;
+        this.mediaInputSupplier = mediaInputSupplier;
+        this.navigationInputSupplier = navigationInputSupplier;
+        this.scrollInputSupplier = scrollInputSupplier;
+        this.volumeInputSupplier = volumeInputSupplier;
+        this.overlayOutputSupplier = overlayOutputSupplier;
     }
 
     public ActivityLauncherInput getActivityLauncherInput() throws ControlNotInitializedException {
-        if (activityLauncherInput == null) throw new ControlNotInitializedException(controlSourceErrors.activityLauncherInputException());
-        return activityLauncherInput;
-    }
-
-    public void setActivityLauncherInput(ActivityLauncherInput activityLauncherInput) {
-        this.activityLauncherInput = activityLauncherInput;
+        return activityLauncherInputSupplier.get();
     }
 
     public CursorInput getCursorInput() throws ControlNotInitializedException {
-        if (cursorInput == null) throw new ControlNotInitializedException(controlSourceErrors.cursorInputException());
-        return cursorInput;
-    }
-
-    public void setCursorInput(CursorInput cursorInput) {
-        this.cursorInput = cursorInput;
+        return cursorInputSupplier.get();
     }
 
     public DirectionalPadInput getDirectionalPadInput() throws ControlNotInitializedException {
-        if (directionalPadInput == null) throw new ControlNotInitializedException(controlSourceErrors.directionalPadInputException());
-        return directionalPadInput;
-    }
-
-    public void setDirectionalPadInput(DirectionalPadInput directionalPadInput) {
-        this.directionalPadInput = directionalPadInput;
+        return directionalPadInputSupplier.get();
     }
 
     public KeyboardInput getKeyboardInput() throws ControlNotInitializedException {
-        if (keyboardInput == null) throw new ControlNotInitializedException(controlSourceErrors.keyboardInputException());
-        return keyboardInput;
-    }
-
-    public void setKeyboardInput(KeyboardInput keyboardInput) {
-        this.keyboardInput = keyboardInput;
+        return keyboardInputSupplier.get();
     }
 
     public MediaInput getMediaInput() throws ControlNotInitializedException {
-        if (mediaInput == null) throw new ControlNotInitializedException(controlSourceErrors.mediaInputException());
-        return mediaInput;
-    }
-
-    public void setMediaInput(MediaInput mediaInput) {
-        this.mediaInput = mediaInput;
+        return mediaInputSupplier.get();
     }
 
     public NavigationInput getNavigationInput() throws ControlNotInitializedException {
-        if (navigationInput == null) throw new ControlNotInitializedException(controlSourceErrors.navigationInputException());
-        return navigationInput;
-    }
-
-    public void setNavigationInput(NavigationInput navigationInput) {
-        this.navigationInput = navigationInput;
+        return navigationInputSupplier.get();
     }
 
     public ScrollInput getScrollInput() throws ControlNotInitializedException {
-        if (scrollInput == null) throw new ControlNotInitializedException(controlSourceErrors.scrollInputException());
-        return scrollInput;
-    }
-
-    public void setScrollInput(ScrollInput scrollInput) {
-        this.scrollInput = scrollInput;
+        return scrollInputSupplier.get();
     }
 
     public VolumeInput getVolumeInput() throws ControlNotInitializedException {
-        if (volumeInput == null) throw new ControlNotInitializedException(controlSourceErrors.volumeInputException());
-        return volumeInput;
-    }
-
-    public void setVolumeInput(VolumeInput volumeInput) {
-        this.volumeInput = volumeInput;
+        return volumeInputSupplier.get();
     }
 
     public OverlayOutput getOverlayOutput() throws ControlNotInitializedException {
-        if (overlayOutput == null) throw new ControlNotInitializedException(controlSourceErrors.overlayOutputException());
-        return overlayOutput;
+        return overlayOutputSupplier.get();
     }
 
     public Optional<OverlayOutput> getOverlayOutputOptional() {
-        return Optional.ofNullable(overlayOutput);
+        return Optional.ofNullable(overlayOutputSupplier.get());
     }
 
-    public void setOverlayOutput(OverlayOutput overlayOutput) {
-        this.overlayOutput = overlayOutput;
-    }
 }
