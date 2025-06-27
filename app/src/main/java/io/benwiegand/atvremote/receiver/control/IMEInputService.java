@@ -9,7 +9,10 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.util.Log;
+import android.view.InputDevice;
+import android.view.KeyCharacterMap;
 import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.EditorInfo;
@@ -18,6 +21,8 @@ import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.R;
@@ -33,6 +38,8 @@ import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallbac
 public class IMEInputService extends InputMethodService implements MakeshiftBindCallback {
     private static final String TAG = IMEInputService.class.getSimpleName();
 
+    private static final int KEY_EVENT_SOURCE = InputDevice.SOURCE_DPAD | InputDevice.SOURCE_KEYBOARD;
+    private static final int KEY_EVENT_DEVICE_ID = KeyCharacterMap.VIRTUAL_KEYBOARD;
     private static final long LONG_PRESS_DURATION = 1500;
 
     private MakeshiftBind makeshiftBind = null;
@@ -42,6 +49,14 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final KeyboardInput keyboardInput = new KeyboardInputHandler();
     private final MediaInput mediaInput = new MediaInputHandler();
+
+    private record KeyState(long downTime, int repeatCount) {
+        KeyState repeat() {
+            return new KeyState(downTime, repeatCount + 1);
+        }
+    }
+
+    private final Map<Integer, KeyState> keyCodeStateMap = new HashMap<>();
 
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -85,21 +100,56 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         return Optional.ofNullable(inputConnection);
     }
 
+    private boolean sendKeyEvent(InputConnection inputConnection, long downTime, long eventTime, int action, int keyCode, int repeat, int flags) {
+        return inputConnection.sendKeyEvent(new KeyEvent(downTime, eventTime, action, keyCode,
+                repeat, 0, KEY_EVENT_DEVICE_ID, 0, flags, KEY_EVENT_SOURCE));
+    }
+
     public boolean simulateKeystroke(KeyEventType type, int keyCode) {
         Log.v(TAG, "simulating keystroke: " + type + " " + keyCode);
         return getOptionalInputConnection().map(inputConnection -> {
-            // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
-            if (type == KeyEventType.CLICK || type == KeyEventType.DOWN) {
-                if (!inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, keyCode))) {
-                    Log.e(TAG, "failed to send key event");
-                    return false;
-                }
-            }
+            long eventTime = SystemClock.uptimeMillis();
 
-            if (type == KeyEventType.CLICK || type == KeyEventType.UP) {
-                if (!inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode))) {
-                    Log.e(TAG, "keycode up failed!");
-                    return false;
+            // no FLAG_SOFT_KEYBOARD, apps will ignore dpad inputs if that's set
+            switch (type) {
+                case CLICK -> {
+                    if (!sendKeyEvent(inputConnection, eventTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, 0, 0)) {
+                        Log.e(TAG, "failed to send key down event for click");
+                        return false;
+                    }
+                    if (!sendKeyEvent(inputConnection, eventTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0, 0)) {
+                        Log.e(TAG, "failed to send key up event for click");
+                        return false;
+                    }
+                }
+                case DOWN -> {
+                    long downTime;
+                    int repeat;
+                    int flags = 0;
+                    synchronized (keyCodeStateMap) {
+                        KeyState state = keyCodeStateMap.compute(keyCode,
+                                (c, s) -> s == null ? new KeyState(eventTime, 0) : s.repeat());
+                        downTime = state.downTime();
+                        repeat = state.repeatCount();
+                        if (state.repeatCount() == 1) flags |= KeyEvent.FLAG_LONG_PRESS;
+                    }
+
+                    if (!sendKeyEvent(inputConnection, downTime, eventTime, KeyEvent.ACTION_DOWN, keyCode, repeat, flags)) {
+                        Log.e(TAG, "failed to send key down event");
+                        return false;
+                    }
+                }
+                case UP -> {
+                    long downTime;
+                    synchronized (keyCodeStateMap) {
+                        KeyState state = keyCodeStateMap.remove(keyCode);
+                        downTime = state != null ? state.downTime : eventTime;
+                    }
+
+                    if (!sendKeyEvent(inputConnection, downTime, eventTime, KeyEvent.ACTION_UP, keyCode, 0, 0)) {
+                        Log.e(TAG, "failed to send key up event");
+                        return false;
+                    }
                 }
             }
 
@@ -109,7 +159,10 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     private boolean simulateKeystrokeLongPress(int keyCode) {
         boolean down = simulateKeystroke(KeyEventType.DOWN, keyCode);
-        handler.postDelayed(() -> simulateKeystroke(KeyEventType.UP, keyCode), LONG_PRESS_DURATION);
+        handler.postDelayed(() -> {
+            simulateKeystroke(KeyEventType.DOWN, keyCode);
+            simulateKeystroke(KeyEventType.UP, keyCode);
+        }, LONG_PRESS_DURATION);
         return down;
     }
 
