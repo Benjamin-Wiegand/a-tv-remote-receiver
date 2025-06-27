@@ -114,6 +114,19 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private boolean softKeyboardOpen = false;
     private AccessibilityWindowInfo softKeyboardWindow = null;
 
+    private final Semaphore imeDpadAssistLimiter = new Semaphore(1);
+
+    private final FakeKeyDownUpHandler fakeSelectButtonHandler = new FakeKeyDownUpHandler(
+            () -> {
+                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                    fakeDpadSelect();
+                } else {
+                    performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
+                }
+            },
+            directionalPadInput::dpadLongPress
+    );
+
 
     @SuppressLint("InlinedApi")
     @Override
@@ -474,6 +487,16 @@ public class AccessibilityInputService extends AccessibilityService implements M
             Log.w(TAG, "focus action failed");
     }
 
+    private void fakeDpadSelect() {
+        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+        if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+    }
+
+    private boolean fakeDpadLongPress() {
+        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+        return node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+    }
+
     private Optional<DirectionalPadInput> getImeDpad() {
         DirectionalPadInput directionalPadInput = imeDirectionalPadInput;
         if (directionalPadInput != null) return Optional.of(directionalPadInput);
@@ -501,104 +524,119 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     }
 
+    private boolean tryImeDpad(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation) {
+        return getImeDpad().map(
+                        input -> {
+                            // only one at a time
+                            boolean allowFallback = type != KeyEventType.UP && imeDpadAssistLimiter.tryAcquire();
+                            if (!allowFallback) {
+                                imeDpadOperation.accept(input, type);
+                                return true;
+                            }
+
+                            try {
+                                AccessibilityNodeInfo initialFocus = findFocusedNode();
+                                imeDpadOperation.accept(input, type);
+                                AccessibilityNodeInfo newFocus = findFocusedNode();
+
+                                if (!Objects.equals(initialFocus, newFocus)) return true;
+                                Log.e(TAG, "ime breakage? falling back");
+                                return false;
+                            } finally {
+                                imeDpadAssistLimiter.release();
+                            }
+                        })
+                .orElse(false);
+    }
+
     public class DirectionalPadInputHandler implements DirectionalPadInput {
-        private final Semaphore imeDpadAssistLimiter = new Semaphore(1);
-        private final FakeKeyDownUpHandler fakeSelectButtonHandler = new FakeKeyDownUpHandler(
-                () -> {
-                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                        fakeDpadSelect();
-                    } else {
-                        performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
-                    }
-                },
-                this::dpadLongPress
-        );
 
-        private boolean useImeDpad() {
-            return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable();
-        }
-
-        private void fakeDpadSelect() {
-            AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
-            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-        }
-
-        private boolean tryImeDpad(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation) {
-            return getImeDpad().map(
-                    input -> {
-                        // only one at a time
-                        boolean allowFallback = type != KeyEventType.UP && imeDpadAssistLimiter.tryAcquire();
-                        if (!allowFallback) {
-                            imeDpadOperation.accept(input, type);
-                            return true;
-                        }
-
-                        try {
-                            AccessibilityNodeInfo initialFocus = findFocusedNode();
-                            imeDpadOperation.accept(input, type);
-                            AccessibilityNodeInfo newFocus = findFocusedNode();
-
-                            if (!Objects.equals(initialFocus, newFocus)) return true;
-                            Log.v(TAG, "ime breakage? falling back");
-                            return false;
-                        } finally {
-                            imeDpadAssistLimiter.release();
-                        }
-                    })
-                    .orElse(false);
-        }
 
         @Override
         public void dpadDown(KeyEventType type) {
-            if (useImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadDown)) return;
+            if (type == KeyEventType.UP) return;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_DOWN);
             } else {
-                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
             }
         }
 
         @Override
         public void dpadUp(KeyEventType type) {
-            if (useImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadUp)) return;
+            if (type == KeyEventType.UP) return;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_UP);
             } else {
-                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_UP);
             }
         }
 
         @Override
         public void dpadLeft(KeyEventType type) {
-            if (useImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadLeft)) return;
+            if (type == KeyEventType.UP) return;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_LEFT);
             } else {
-                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
             }
         }
 
         @Override
         public void dpadRight(KeyEventType type) {
-            if (useImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadRight)) return;
+            if (type == KeyEventType.UP) return;
             if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                if (type == KeyEventType.UP) return;
                 fakeDpad(View.FOCUS_RIGHT);
             } else {
-                if (type == KeyEventType.UP) return;
                 performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
             }
         }
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (useImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress()) {
+            fakeSelectButtonHandler.onKeyEvent(type);
+        }
+
+        @Override
+        public void dpadLongPress() {
+            AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+        }
+    }
+
+    public class AssistedImeDirectionalPadInputHandler implements DirectionalPadInput {
+
+        private boolean shouldUseImeDpad() {
+            return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable();
+        }
+
+        @Override
+        public void dpadDown(KeyEventType type) {
+            if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadDown)) return;
+            directionalPadInput.dpadDown(type);
+        }
+
+        @Override
+        public void dpadUp(KeyEventType type) {
+            if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadUp)) return;
+            directionalPadInput.dpadUp(type);
+        }
+
+        @Override
+        public void dpadLeft(KeyEventType type) {
+            if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadLeft)) return;
+            directionalPadInput.dpadLeft(type);
+        }
+
+        @Override
+        public void dpadRight(KeyEventType type) {
+            if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadRight)) return;
+            directionalPadInput.dpadRight(type);
+        }
+
+        @Override
+        public void dpadSelect(KeyEventType type) {
+            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress()) {
                 boolean sent = getImeDpad().map(input -> {
                     input.dpadSelect(type);
                     return true;
@@ -611,10 +649,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadLongPress() {
-            AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
-            boolean successful = node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
-            if (successful) return;
-
+            // the ime is slower to long press, so prefer accessibility implementation if possible
+            if (fakeDpadLongPress()) return;
             Log.v(TAG, "failed to long press node, falling back to ime");
             getImeDpad().ifPresent(DirectionalPadInput::dpadLongPress);
         }
@@ -891,6 +927,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         public DirectionalPadInput getDirectionalPadInput() {
             return directionalPadInput;
+        }
+
+        public DirectionalPadInput getAssistedImeDirectionalPadInput() {
+            return assistedImeDirectionalPadInput;
         }
 
         public NavigationInput getNavigationInput() {

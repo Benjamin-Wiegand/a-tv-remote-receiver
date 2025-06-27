@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.AdapterView;
@@ -174,6 +175,18 @@ public class DebugActivity extends AppCompatActivity {
 
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), debugServiceConnection);
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), debugServiceConnection);
+    }
+
+    @Override
+    public boolean onKeyDown(int keyCode, KeyEvent event) {
+        Log.i(TAG, "onKeyDown(): " + event.toString());
+        return super.onKeyDown(keyCode, event);
+    }
+
+    @Override
+    public boolean onKeyUp(int keyCode, KeyEvent event) {
+        Log.i(TAG, "onKeyUp(): " + event.toString());
+        return super.onKeyUp(keyCode, event);
     }
 
     private void tryActivityIntents(Intent... intents) {

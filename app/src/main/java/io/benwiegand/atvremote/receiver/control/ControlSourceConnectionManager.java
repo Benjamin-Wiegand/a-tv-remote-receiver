@@ -44,6 +44,7 @@ public class ControlSourceConnectionManager {
     private ActivityLauncherInput accessibilityActivityLauncherInput = null;
     private CursorInput accessibilityFakeCursorInput = null;
     private DirectionalPadInput accessibilityDirectionalPadInput = null;
+    private DirectionalPadInput accessibilityAssistedImeDirectionalPadInput = null;
     private KeyboardInput accessibilityKeyboardInput = null;
     private NavigationInput accessibilityNavigationInput = null;
     private VolumeInput accessibilityVolumeInput = null;
@@ -66,7 +67,13 @@ public class ControlSourceConnectionManager {
                 () -> lockForControls(() -> accessibilityFakeCursorInput, R.string.control_source_not_loaded_accessibility),
                 () -> {
                     synchronized (inputLock) {
-                        if (accessibilityDirectionalPadInput != null) return accessibilityDirectionalPadInput;
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                            if (accessibilityAssistedImeDirectionalPadInput != null) return accessibilityAssistedImeDirectionalPadInput;
+                            if (accessibilityDirectionalPadInput != null) return accessibilityDirectionalPadInput;
+                        } else {
+                            if (accessibilityDirectionalPadInput != null) return accessibilityDirectionalPadInput;
+                            if (accessibilityAssistedImeDirectionalPadInput != null) return accessibilityAssistedImeDirectionalPadInput;
+                        }
                         if (imeDirectionalPadInput != null) return imeDirectionalPadInput;
                     }
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
@@ -163,6 +170,7 @@ public class ControlSourceConnectionManager {
             synchronized (inputLock) {
                 accessibilityDirectionalPadInput = binder.getDirectionalPadInput();
                 accessibilityNavigationInput = binder.getNavigationInput();
+                accessibilityAssistedImeDirectionalPadInput = binder.getAssistedImeDirectionalPadInput();
                 accessibilityFakeCursorInput = binder.getCursorInput();
                 accessibilityVolumeInput = binder.getVolumeInput();
                 accessibilityActivityLauncherInput = binder.getActivityLauncherInput();
@@ -183,6 +191,7 @@ public class ControlSourceConnectionManager {
             synchronized (inputLock) {
                 accessibilityDirectionalPadInput = null;
                 accessibilityNavigationInput = null;
+                accessibilityAssistedImeDirectionalPadInput = null;
                 accessibilityFakeCursorInput = null;
                 accessibilityVolumeInput = null;
                 accessibilityActivityLauncherInput = null;
