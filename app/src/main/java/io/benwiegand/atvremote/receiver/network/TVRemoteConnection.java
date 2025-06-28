@@ -347,11 +347,11 @@ public class TVRemoteConnection implements Closeable {
                 new OperationDefinition(OP_DPAD_SELECT, handleKeyEvent(type -> controlScheme.getDirectionalPadInput().dpadSelect(type))),
                 new OperationDefinition(OP_DPAD_LONG_PRESS, () -> controlScheme.getDirectionalPadInput().dpadLongPress()),
 
-                new OperationDefinition(OP_NAV_HOME, handleKeyEvent(type -> controlScheme.getNavigationInput().navHome(type))),
-                new OperationDefinition(OP_NAV_BACK, handleKeyEvent(type -> controlScheme.getNavigationInput().navBack(type))),
-                new OperationDefinition(OP_NAV_RECENT, handleKeyEvent(type -> controlScheme.getNavigationInput().navRecent(type))),
-                new OperationDefinition(OP_NAV_NOTIFICATIONS, handleKeyEvent(type -> controlScheme.getNavigationInput().navNotifications(type))),
-                new OperationDefinition(OP_NAV_QUICK_SETTINGS, () -> controlScheme.getNavigationInput().navQuickSettings()),
+                new OperationDefinition(OP_NAV_HOME, handleKeyEvent(type -> controlScheme.getFullNavigationInput().navHome(type))),
+                new OperationDefinition(OP_NAV_BACK, handleKeyEvent(type -> controlScheme.getBackNavigationInput().navBack(type))),
+                new OperationDefinition(OP_NAV_RECENT, handleKeyEvent(type -> controlScheme.getFullNavigationInput().navRecent(type))),
+                new OperationDefinition(OP_NAV_NOTIFICATIONS, handleKeyEvent(type -> controlScheme.getFullNavigationInput().navNotifications(type))),
+                new OperationDefinition(OP_NAV_QUICK_SETTINGS, () -> controlScheme.getFullNavigationInput().navQuickSettings()),
 
                 new OperationDefinition(OP_VOLUME_UP, handleKeyEvent(type -> controlScheme.getVolumeInput().volumeUp(type))),
                 new OperationDefinition(OP_VOLUME_DOWN, handleKeyEvent(type -> controlScheme.getVolumeInput().volumeDown(type))),
@@ -388,7 +388,7 @@ public class TVRemoteConnection implements Closeable {
 
                 new OperationDefinition(OP_EXTRA_BUTTON, extra -> {
                     switch (extra) {
-                        case EXTRA_BUTTON_GTV_DASHBOARD -> controlScheme.getNavigationInput().navNotifications(KeyEventType.CLICK);
+                        case EXTRA_BUTTON_GTV_DASHBOARD -> controlScheme.getFullNavigationInput().navNotifications(KeyEventType.CLICK);
                         case EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS -> controlScheme.getActivityLauncherInput().launchActivity(LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
                         default -> throw new RemoteProtocolException(R.string.protocol_error_extra_button_no_such_button, "no such button: " + extra);
                     }

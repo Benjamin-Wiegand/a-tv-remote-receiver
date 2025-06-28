@@ -3,11 +3,12 @@ package io.benwiegand.atvremote.receiver.control;
 import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
+import io.benwiegand.atvremote.receiver.control.input.BackNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
-import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.ScrollInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
@@ -27,7 +28,8 @@ public class ControlScheme {
     private final ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier;
     private final ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier;
     private final ControlHandlerSupplier<MediaInput> mediaInputSupplier;
-    private final ControlHandlerSupplier<NavigationInput> navigationInputSupplier;
+    private final ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier;
+    private final ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier;
     private final ControlHandlerSupplier<ScrollInput> scrollInputSupplier;
     private final ControlHandlerSupplier<VolumeInput> volumeInputSupplier;
     // todo: power (sleep and menu)
@@ -35,13 +37,14 @@ public class ControlScheme {
     // output
     private final ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
 
-    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<NavigationInput> navigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier) {
+    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier) {
         this.activityLauncherInputSupplier = activityLauncherInputSupplier;
         this.cursorInputSupplier = cursorInputSupplier;
         this.directionalPadInputSupplier = directionalPadInputSupplier;
         this.keyboardInputSupplier = keyboardInputSupplier;
         this.mediaInputSupplier = mediaInputSupplier;
-        this.navigationInputSupplier = navigationInputSupplier;
+        this.fullNavigationInputSupplier = fullNavigationInputSupplier;
+        this.backNavigationInputSupplier = backNavigationInputSupplier;
         this.scrollInputSupplier = scrollInputSupplier;
         this.volumeInputSupplier = volumeInputSupplier;
         this.overlayOutputSupplier = overlayOutputSupplier;
@@ -67,8 +70,12 @@ public class ControlScheme {
         return mediaInputSupplier.get();
     }
 
-    public NavigationInput getNavigationInput() throws ControlNotInitializedException {
-        return navigationInputSupplier.get();
+    public FullNavigationInput getFullNavigationInput() throws ControlNotInitializedException {
+        return fullNavigationInputSupplier.get();
+    }
+
+    public BackNavigationInput getBackNavigationInput() throws ControlNotInitializedException {
+        return backNavigationInputSupplier.get();
     }
 
     public ScrollInput getScrollInput() throws ControlNotInitializedException {

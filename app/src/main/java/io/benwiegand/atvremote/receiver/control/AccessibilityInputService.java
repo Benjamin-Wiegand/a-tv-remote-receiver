@@ -42,7 +42,7 @@ import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
-import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
@@ -95,7 +95,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     private FakeCursor cursorInput = null;
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
-    private final NavigationInput navigationInput = new NavigationInputHandler();
+    private final DirectionalPadInput assistedImeDirectionalPadInput = new AssistedImeDirectionalPadInputHandler();
+    private final FullNavigationInput fullNavigationInput = new FullNavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final ActivityLauncherInput activityLauncherInput = new ActivityLauncherInputHandler();
     private final KeyboardInput keyboardInput = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new KeyboardInputHandler() : null;
@@ -656,7 +657,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
-    public class NavigationInputHandler implements NavigationInput {
+    public class FullNavigationInputHandler implements FullNavigationInput {
         private final FakeKeyDownUpHandler fakeHomeButtonHandler = new FakeKeyDownUpHandler(
                 () -> performGlobalAction(GLOBAL_ACTION_HOME),
                 () -> navNotifications(KeyEventType.CLICK) /* todo */);
@@ -933,8 +934,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return assistedImeDirectionalPadInput;
         }
 
-        public NavigationInput getNavigationInput() {
-            return navigationInput;
+        public FullNavigationInput getFullNavigationInput() {
+            return fullNavigationInput;
         }
 
         public CursorInput getCursorInput() {

@@ -15,11 +15,12 @@ import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
+import io.benwiegand.atvremote.receiver.control.input.BackNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
-import io.benwiegand.atvremote.receiver.control.input.NavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
@@ -46,13 +47,14 @@ public class ControlSourceConnectionManager {
     private DirectionalPadInput accessibilityDirectionalPadInput = null;
     private DirectionalPadInput accessibilityAssistedImeDirectionalPadInput = null;
     private KeyboardInput accessibilityKeyboardInput = null;
-    private NavigationInput accessibilityNavigationInput = null;
+    private FullNavigationInput accessibilityFullNavigationInput = null;
     private VolumeInput accessibilityVolumeInput = null;
     private OverlayOutput accessibilityOverlayOutput = null;
 
     private MediaInput notificationListenerMediaInput = null;
 
     private DirectionalPadInput imeDirectionalPadInput = null;
+    private BackNavigationInput imeBackNavigationInput = null;
     private KeyboardInput imeKeyboardInput = null;
     private MediaInput imeMediaInput = null;
     private VolumeInput imeVolumeInput = null;
@@ -92,7 +94,14 @@ public class ControlSourceConnectionManager {
                     }
                     throw new ControlNotInitializedException(getImeServiceExceptionText());
                 },
-                () -> lockForControls(() -> accessibilityNavigationInput, R.string.control_source_not_loaded_accessibility),
+                () -> lockForControls(() -> accessibilityFullNavigationInput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityFullNavigationInput != null) return accessibilityFullNavigationInput;
+                        if (imeBackNavigationInput != null) return imeBackNavigationInput;
+                    }
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
                 () -> {
                     throw new ControlNotInitializedException("not implemented");
                 },
@@ -169,7 +178,7 @@ public class ControlSourceConnectionManager {
             // set accessibility control methods
             synchronized (inputLock) {
                 accessibilityDirectionalPadInput = binder.getDirectionalPadInput();
-                accessibilityNavigationInput = binder.getNavigationInput();
+                accessibilityFullNavigationInput = binder.getFullNavigationInput();
                 accessibilityAssistedImeDirectionalPadInput = binder.getAssistedImeDirectionalPadInput();
                 accessibilityFakeCursorInput = binder.getCursorInput();
                 accessibilityVolumeInput = binder.getVolumeInput();
@@ -190,7 +199,7 @@ public class ControlSourceConnectionManager {
 
             synchronized (inputLock) {
                 accessibilityDirectionalPadInput = null;
-                accessibilityNavigationInput = null;
+                accessibilityFullNavigationInput = null;
                 accessibilityAssistedImeDirectionalPadInput = null;
                 accessibilityFakeCursorInput = null;
                 accessibilityVolumeInput = null;
@@ -211,6 +220,7 @@ public class ControlSourceConnectionManager {
             // set control methods
             synchronized (inputLock) {
                 imeDirectionalPadInput = binder.getDirectionalPadInput();
+                imeBackNavigationInput = binder.getBackNavigationInput();
                 imeVolumeInput = binder.getVolumeInput();
                 imeKeyboardInput = binder.getKeyboardInput();
                 imeMediaInput = binder.getMediaInput();
@@ -225,6 +235,7 @@ public class ControlSourceConnectionManager {
 
             synchronized (inputLock) {
                 imeDirectionalPadInput = null;
+                imeBackNavigationInput = null;
                 imeVolumeInput = null;
                 imeKeyboardInput = null;
                 imeMediaInput = null;

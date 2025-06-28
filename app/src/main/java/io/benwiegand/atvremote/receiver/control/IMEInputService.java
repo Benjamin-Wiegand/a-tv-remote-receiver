@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.control.input.BackNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
@@ -46,6 +47,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     private final IBinder binder = new ServiceBinder();
 
     private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
+    private final BackNavigationInput backNavigationInput = new BackNavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final KeyboardInput keyboardInput = new KeyboardInputHandler();
     private final MediaInput mediaInput = new MediaInputHandler();
@@ -288,6 +290,13 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         }
     }
 
+    public class BackNavigationInputHandler implements BackNavigationInput {
+        @Override
+        public void navBack(KeyEventType type) {
+            simulateKeystroke(type, KeyEvent.KEYCODE_BACK);
+        }
+    }
+
     public class VolumeInputHandler implements VolumeInput {
         @Override
         public void volumeUp(KeyEventType type) {
@@ -461,6 +470,10 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     public class ServiceBinder extends Binder {
         public DirectionalPadInput getDirectionalPadInput() {
             return directionalPadInput;
+        }
+
+        public BackNavigationInput getBackNavigationInput() {
+            return backNavigationInput;
         }
 
         public VolumeInput getVolumeInput() {
