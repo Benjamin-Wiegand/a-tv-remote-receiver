@@ -19,6 +19,7 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.EditorInfo;
+import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
 
 import androidx.annotation.RequiresApi;
@@ -75,6 +76,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
      */
     public static final boolean USES_IME_DPAD_ASSIST = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !USES_FAKE_DPAD;
 
+    /**
+     * milliseconds to wait for ime service when started
+     */
+    private static final long IME_SERVICE_WAIT_TIMEOUT = 500;
+
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red
     private static final String DEBUG_OVERLAY_KEYBOARD_FOCUSABLE = "keyboardFocusable";
@@ -99,7 +105,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final FullNavigationInput fullNavigationInput = new FullNavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final ActivityLauncherInput activityLauncherInput = new ActivityLauncherInputHandler();
-    private final KeyboardInput keyboardInput = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new KeyboardInputHandler() : null;
+    private final KeyboardInput keyboardInput = new KeyboardInputHandler();
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
@@ -107,10 +113,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private DebugOverlay debugOverlay = null;
     private NodeCondition debugShowMatchingNodesCondition = null;
 
-    // ime dpad assist
-    // for api 30, 31, and 32
+    // ime dpad assist - for api 30, 31, and 32
+    // ime keyboard - automatically switch for api >=30
     private final MakeshiftServiceConnection imeInputServiceConnection = new IMEInputServiceConnection();
+    private final Object imeInputLock = new Object();
     private DirectionalPadInput imeDirectionalPadInput = null;
+    private KeyboardInput imeKeyboardInput = null;
 
     private boolean softKeyboardOpen = false;
     private AccessibilityWindowInfo softKeyboardWindow = null;
@@ -498,31 +506,52 @@ public class AccessibilityInputService extends AccessibilityService implements M
         return node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
     }
 
-    private Optional<DirectionalPadInput> getImeDpad() {
-        DirectionalPadInput directionalPadInput = imeDirectionalPadInput;
-        if (directionalPadInput != null) return Optional.of(directionalPadInput);
-
+    private boolean switchToIme(boolean promptIfNeeded) {
         String imeId = IMEInputService.getInputMethodId(this);
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             boolean switchResult = getSoftKeyboardController().switchToInputMethod(imeId);
-            if (switchResult)
-                return Optional.empty(); //todo: try to figrue something out to avoid dropping a dpad input
+            if (switchResult) return true;
 
-            if (IMEInputService.isEnabled(this)) {
-                Log.wtf(TAG, "input method is enabled, but the switch failed");
-                return Optional.empty();
+            if (!IMEInputService.isEnabled(this)) {
+                // todo: ask user to enable input method
+                Log.e(TAG, "input method not enabled");
+                return false;
             }
 
-            // todo: ask user to enable input method
-            Log.e(TAG, "input method not enabled");
+            Log.wtf(TAG, "input method is enabled, but the switch failed");
         } else {
             Log.d(TAG, "input method not selected");
         }
 
+        if (!promptIfNeeded) return false;
+        InputMethodManager imm = getSystemService(InputMethodManager.class);
+        imm.showInputMethodPicker();
+        return false;
+    }
 
-        return Optional.empty();
+    private Optional<DirectionalPadInput> getImeDpad() {
+        synchronized (imeInputLock) {
+            if (imeDirectionalPadInput != null) return Optional.of(imeDirectionalPadInput);
+            if (!switchToIme(false)) return Optional.empty();
+            try {
+                imeInputLock.wait(IME_SERVICE_WAIT_TIMEOUT);
+            } catch (InterruptedException ignored) {}
 
+            return Optional.ofNullable(imeDirectionalPadInput);
+        }
+    }
+
+    private Optional<KeyboardInput> getImeKeyboard() {
+        synchronized (imeInputLock) {
+            if (imeKeyboardInput != null) return Optional.of(imeKeyboardInput);
+            if (!switchToIme(true)) return Optional.empty();
+            try {
+                imeInputLock.wait(IME_SERVICE_WAIT_TIMEOUT);
+            } catch (InterruptedException ignored) {}
+
+            return Optional.ofNullable(imeKeyboardInput);
+        }
     }
 
     private boolean tryImeDpad(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation) {
@@ -740,15 +769,20 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public class KeyboardInputHandler implements KeyboardInput {
         private Optional<InputMethod> getOptionalInputMethod() {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Optional.empty();
             return Optional.ofNullable(getInputMethod());
         }
 
         private Optional<InputMethod.AccessibilityInputConnection> getOptionalInputConnection() {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return Optional.empty();
             return getOptionalInputMethod()
                     .map(InputMethod::getCurrentInputConnection);
+        }
+
+        private <T> Optional<T> tryOnImeKeyboard(Function<KeyboardInput, T> f) {
+            return getImeKeyboard().map(f);
         }
 
         @Override
@@ -761,7 +795,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return getOptionalInputConnection().map(inputConnection -> {
                 inputConnection.commitText(input, newCursorPosition, null);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.commitText(input, newCursorPosition)))
+                    .orElse(false);
         }
 
         @Override
@@ -770,7 +806,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 SurroundingText surroundingText = inputConnection.getSurroundingText(beforeLength, afterLength, 0);
                 if (surroundingText == null) return null;
                 return new SurroundingTextResponse(surroundingText);
-            }).orElse(null);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.getSurroundingText(beforeLength, afterLength)))
+                    .orElse(null);
         }
 
         @Override
@@ -778,7 +816,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return getOptionalInputConnection().map(inputConnection -> {
                 inputConnection.setSelection(start, end);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.setSelection(start, end)))
+                    .orElse(false);
         }
 
         @Override
@@ -786,7 +826,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return getOptionalInputConnection().map(inputConnection -> {
                 inputConnection.deleteSurroundingText(beforeLength, afterLength);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.deleteSurroundingText(beforeLength, afterLength)))
+                    .orElse(false);
         }
 
         @Override
@@ -794,7 +836,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return getOptionalInputConnection().map(inputConnection -> {
                 inputConnection.performContextMenuAction(id);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.performContextMenuAction(id)))
+                    .orElse(false);
         }
 
         @Override
@@ -802,7 +846,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return getOptionalInputConnection().map(inputConnection -> {
                 inputConnection.performEditorAction(id);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.performEditorAction(id)))
+                    .orElse(false);
         }
 
         @Override
@@ -815,7 +861,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
                     inputConnection.sendKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, keyCode));
 
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(i -> i.sendKeyEvent(keyCode, type)))
+                    .orElse(false);
         }
 
         @Override
@@ -834,7 +882,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
                 inputConnection.performEditorAction(action);
                 return true;
-            }).orElse(false);
+            })
+                    .or(() -> tryOnImeKeyboard(KeyboardInput::performDefaultEditorAction))
+                    .orElse(false);
         }
     }
 
@@ -872,13 +922,21 @@ public class AccessibilityInputService extends AccessibilityService implements M
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.v(TAG, "IMEInputService service connected");
             IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
-            imeDirectionalPadInput = binder.getDirectionalPadInput();
+            synchronized (imeInputLock) {
+                imeDirectionalPadInput = binder.getDirectionalPadInput();
+                imeKeyboardInput = binder.getKeyboardInput();
+
+                imeInputLock.notifyAll();
+            }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
             Log.v(TAG, "IMEInputService service disconnected");
-            imeDirectionalPadInput = null;
+            synchronized (imeInputLock) {
+                imeDirectionalPadInput = null;
+                imeKeyboardInput = null;
+            }
         }
     }
 
@@ -950,7 +1008,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return activityLauncherInput;
         }
 
-        @RequiresApi(Build.VERSION_CODES.TIRAMISU)
         public KeyboardInput getKeyboardInput() {
             return keyboardInput;
         }

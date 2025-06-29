@@ -183,9 +183,7 @@ public class ControlSourceConnectionManager {
                 accessibilityFakeCursorInput = binder.getCursorInput();
                 accessibilityVolumeInput = binder.getVolumeInput();
                 accessibilityActivityLauncherInput = binder.getActivityLauncherInput();
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    accessibilityKeyboardInput = binder.getKeyboardInput();
-                }
+                accessibilityKeyboardInput = binder.getKeyboardInput();
 
                 accessibilityOverlayOutput = binder.getOverlayOutput();
             }
