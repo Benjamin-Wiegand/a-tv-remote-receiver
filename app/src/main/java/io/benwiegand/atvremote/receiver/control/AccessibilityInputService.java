@@ -81,6 +81,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
      */
     private static final long IME_SERVICE_WAIT_TIMEOUT = 500;
 
+    /**
+     * milliseconds to wait for ime input to propagate before falling back to fake dpad
+     */
+    private static final long IME_ASSIST_WAIT_TIMEOUT = 100;
+
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red
     private static final String DEBUG_OVERLAY_KEYBOARD_FOCUSABLE = "keyboardFocusable";
@@ -135,6 +140,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
             },
             directionalPadInput::dpadLongPress
     );
+
+    private final Object cacheLock = new Object();
+    private AccessibilityNodeInfo cachedInputFocus = null;
+    private AccessibilityNodeInfo fakeDpadCachedKeyboardFocus = null;
 
 
     @SuppressLint("InlinedApi")
@@ -384,15 +393,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     /**
-     * like findFocusedNode() but gets the focused node on the soft keyboard first if it's open
-     * @return the currently focused node, or null if none
-     */
-    private AccessibilityNodeInfo findFocusedNodeIncludingKeyboard() {
-        if (isSoftKeyboardUsable()) return findFocusedNode(softKeyboardWindow);
-        return findFocusedNode();
-    }
-
-    /**
      * traverses the children of the provided node until it finds a focusable node
      * and then returns it
      * @return first focusable node encountered, or null if none
@@ -443,8 +443,61 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     /**
+     * @see #getOrFindFocusedNodeLocked()
+     */
+    private AccessibilityNodeInfo getOrFindFocusedNodeLocked() {
+        AccessibilityNodeInfo node = cachedInputFocus;
+        if (node != null && node.refresh() && node.isFocused())
+            return node;
+
+        // cache miss, focus search
+        cachedInputFocus = findFocusedNode();
+        cacheLock.notifyAll();
+        return cachedInputFocus;
+    }
+
+    /**
+     * gets the focused node from the cache.
+     * if that isn't present/focused anymore it performs a focus search.
+     * @return the focused node or null if there is none
+     */
+    private AccessibilityNodeInfo getOrFindFocusedNode() {
+        synchronized (cacheLock) {
+            return getOrFindFocusedNodeLocked();
+        }
+    }
+
+    /**
+     * @see #getOrFindFakeDpadFocus()
+     */
+    private AccessibilityNodeInfo getOrFindFakeDpadFocusLocked() {
+        boolean keyboardFocus = isSoftKeyboardUsable();
+        if (!keyboardFocus) return getOrFindFocusedNodeLocked();
+
+        AccessibilityNodeInfo node = fakeDpadCachedKeyboardFocus;
+        if (node != null && node.refresh() && node.isFocused())
+            return node;
+
+        // cache miss, focus search
+        fakeDpadCachedKeyboardFocus = findFocusedNode(softKeyboardWindow);
+        cacheLock.notifyAll();
+        return fakeDpadCachedKeyboardFocus;
+    }
+
+    /**
+     * gets the focus of the fake dpad from the cache.
+     * if that isn't present/focused anymore it performs a focus search.
+     * @return the focused node of the fake dpad, or null if there is none
+     */
+    private AccessibilityNodeInfo getOrFindFakeDpadFocus() {
+        synchronized (cacheLock) {
+            return getOrFindFakeDpadFocusLocked();
+        }
+    }
+
+    /**
      * tries to fake the behavior of a dpad using accessibility nodes.
-     * finds the focused node and searches in the given direction.
+     * finds the focused node and searches in the given direction (with a cache).
      * if there is no node in that direction, it focuses any focusable child node it can find.
      * if there is no focused node, it finds the first focusable node and focuses that.
      * if that too fails, nothing happens.
@@ -454,25 +507,40 @@ public class AccessibilityInputService extends AccessibilityService implements M
         // this still sucks, but less now
         Log.v(TAG, "faking dpad in direction " + direction);
 
-        // get the keyboard node if it's open
-        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+        AccessibilityNodeInfo oldNode, newNode;
+        synchronized (cacheLock) {
+            oldNode = getOrFindFakeDpadFocusLocked();
+            boolean onKeyboard = oldNode == fakeDpadCachedKeyboardFocus;
 
-        AccessibilityNodeInfo newNode;
-        if (node == null) {
-            Log.v(TAG, "no focused node, finding one");
-            newNode = findFirstFocusableNode();
-        } else {
-            newNode = node.focusSearch(direction);
+            if (oldNode == null) {
+                Log.v(TAG, "no focused node, finding one");
+                newNode = findFirstFocusableNode();
+            } else {
+                newNode = oldNode.focusSearch(direction);
+                if (newNode == null) {
+                    Log.i(TAG, "search returned no node, checking children");
+                    newNode = findFirstFocusableChild(oldNode);
+                }
+            }
+
             if (newNode == null) {
-                Log.i(TAG, "search returned no node, checking children");
-                newNode = findFirstFocusableChild(node);
+                Log.i(TAG, "no node found");
+            } else if (tryFocusNode(newNode)) {
+                if (!onKeyboard) {
+                    cachedInputFocus = newNode;
+                } else {
+                    fakeDpadCachedKeyboardFocus = newNode;
+                }
+                cacheLock.notifyAll();
+            } else {
+                Log.w(TAG, "focus action failed");
             }
         }
 
         // debug rectangles
-        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, node, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
+        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldNode, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
         debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newNode, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
-        if (node != null) debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, node.getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
+        if (oldNode != null) debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, oldNode.getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
         if (isDebugOverlayEnabled()) {
             // first focusable node in every window
             AccessibilityNodeInfo[] nodes = getWindows().stream()
@@ -487,23 +555,15 @@ public class AccessibilityInputService extends AccessibilityService implements M
             debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
         }
         debugShowMatchingNodes();
-
-        if (newNode == null) {
-            Log.i(TAG, "no node found");
-            return;
-        }
-
-        if (!tryFocusNode(newNode))
-            Log.w(TAG, "focus action failed");
     }
 
     private void fakeDpadSelect() {
-        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+        AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
         if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
     }
 
     private boolean fakeDpadLongPress() {
-        AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+        AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
         return node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
     }
 
@@ -566,13 +626,23 @@ public class AccessibilityInputService extends AccessibilityService implements M
                             }
 
                             try {
-                                AccessibilityNodeInfo initialFocus = findFocusedNode();
+                                AccessibilityNodeInfo initialFocus = getOrFindFocusedNode();
                                 imeDpadOperation.accept(input, type);
-                                AccessibilityNodeInfo newFocus = findFocusedNode();
+                                synchronized (cacheLock) {
+                                    AccessibilityNodeInfo newFocus = getOrFindFocusedNodeLocked();
+                                    if (!Objects.equals(initialFocus, newFocus)) return true;
+                                    // the new caching system is so fast it gets here before the key event
+                                    // has had time to propagate. I would really like to find a better way
+                                    // to do this fallback.
+                                    cacheLock.wait(IME_ASSIST_WAIT_TIMEOUT);
+                                    newFocus = getOrFindFocusedNodeLocked();
+                                    if (!Objects.equals(initialFocus, newFocus)) return true;
+                                }
 
-                                if (!Objects.equals(initialFocus, newFocus)) return true;
                                 Log.e(TAG, "ime breakage? falling back");
                                 return false;
+                            } catch (InterruptedException ignored) {
+                                return true;
                             } finally {
                                 imeDpadAssistLimiter.release();
                             }
@@ -630,7 +700,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadLongPress() {
-            AccessibilityNodeInfo node = findFocusedNodeIncludingKeyboard();
+            AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
             if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
         }
     }
