@@ -677,6 +677,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 fakeDpadFakeFocus = null;
                 cacheLock.notifyAll();
             } else {
+                // workaround for google tv home screen
+                AccessibilityNodeInfo child = findFirstFocusableChild(newNode);
+                if (tryFocusNode(child)) {
+                    Log.d(TAG, "used child focus fallback");
+                    return;
+                }
                 Log.w(TAG, "focus action failed");
             }
         }
