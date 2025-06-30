@@ -460,6 +460,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return node;
 
         // cache miss, focus search
+        Log.w(TAG, "INPUT MISS");
         cachedInputFocus = findFocusedNode();
         cacheLock.notifyAll();
         return cachedInputFocus;
@@ -495,6 +496,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
 
         // cache miss, focus search
+        Log.w(TAG, "KEYBOARD/FAKE MISS");
         fakeDpadCachedKeyboardFocus = findFocusedNode(softKeyboardWindow);
         cacheLock.notifyAll();
         return fakeDpadCachedKeyboardFocus;
