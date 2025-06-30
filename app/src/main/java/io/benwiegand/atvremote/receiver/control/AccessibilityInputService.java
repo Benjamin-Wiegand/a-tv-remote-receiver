@@ -86,6 +86,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
      */
     private static final long IME_ASSIST_WAIT_TIMEOUT = 100;
 
+    private static final int FOCUS_HORIZONTAL_MASK = 0x50;
+
     private static final String DEBUG_OVERLAY_KEYBOARD_DETECTION = "keyboard";
     private static final int DEBUG_OVERLAY_KEYBOARD_DETECTION_COLOR = 0xFFFF0000; // red
     private static final String DEBUG_OVERLAY_KEYBOARD_FOCUSABLE = "keyboardFocusable";
@@ -100,6 +102,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private static final int DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR = 0xFF0000FF; // blue
     private static final String DEBUG_OVERLAY_SHOW_MATCHING_NODES = "matchingNodes";
     private static final int DEBUG_OVERLAY_SHOW_MATCHING_NODES_COLOR = 0xFF00FFFF; // cyan
+    private static final String DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATES = "fakeFocusTargets";
+    private static final int DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATES_COLOR = 0xFFFF0000; // red
+    private static final String DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATE_POSITIONS = "fakeFocusPos";
+    private static final int DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATE_POSITIONS_COLOR = 0xFFFF0000; // red
+    private static final String DEBUG_OVERLAY_FAKE_FOCUS_FIRST_CANDIDATE = "fakeFocusFirst";
+    private static final int DEBUG_OVERLAY_FAKE_FOCUS_FIRST_CANDIDATE_COLOR = 0xFF0000FF; // blue
 
     private final AccessibilityInputHandler binder = new AccessibilityInputHandler();
     private MakeshiftBind makeshiftBind = null;
@@ -144,6 +152,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final Object cacheLock = new Object();
     private AccessibilityNodeInfo cachedInputFocus = null;
     private AccessibilityNodeInfo fakeDpadCachedKeyboardFocus = null;
+    private AccessibilityNodeInfo fakeDpadFakeFocus = null;
 
 
     @SuppressLint("InlinedApi")
@@ -471,17 +480,138 @@ public class AccessibilityInputService extends AccessibilityService implements M
      * @see #getOrFindFakeDpadFocus()
      */
     private AccessibilityNodeInfo getOrFindFakeDpadFocusLocked() {
+        AccessibilityNodeInfo node = fakeDpadFakeFocus;
+        if (node != null && node.refresh()) {
+            Log.i(TAG, "FAKE HIT");
+            return node;
+        }
+
         boolean keyboardFocus = isSoftKeyboardUsable();
         if (!keyboardFocus) return getOrFindFocusedNodeLocked();
 
-        AccessibilityNodeInfo node = fakeDpadCachedKeyboardFocus;
-        if (node != null && node.refresh() && node.isFocused())
+        node = fakeDpadCachedKeyboardFocus;
+        if (node != null && node.refresh() && node.isFocused()) {
             return node;
+        }
 
         // cache miss, focus search
         fakeDpadCachedKeyboardFocus = findFocusedNode(softKeyboardWindow);
         cacheLock.notifyAll();
         return fakeDpadCachedKeyboardFocus;
+    }
+
+    /**
+     * searches for nodes in a specified direction which are either focusable or clickable by traversing
+     * the view hierarchy.
+     * it is not very good, but it allows navigation of some areas that were previously unreachable
+     * by fake dpad, so it's better than nothing.
+     * part of the reason why it sucks is that when scroll views are scrolled via accessibility nodes,
+     * everything explodes. I have no mitigation for that yet, apart from just not letting scrolling happen.
+     * @param fromNode the originating node
+     * @param direction the direction to look in
+     * @return the closest node in that direction, or null if none
+     */
+    private AccessibilityNodeInfo fakeFocusSearch(AccessibilityNodeInfo fromNode, int direction) {
+        fromNode.refresh();
+        Rect nodeBounds = new Rect(), siblingBounds = new Rect();
+        AccessibilityNodeInfo sibling;
+        AccessibilityNodeInfo node = fromNode;
+        AccessibilityNodeInfo parent = fromNode.getParent();
+
+        boolean forward = (direction & View.FOCUS_FORWARD) != 0;
+        boolean horizontal = (direction & FOCUS_HORIZONTAL_MASK) != 0;
+
+        record NodeRanking(int movementAxisPosition, int boundAxisPosition, AccessibilityNodeInfo node) {}
+
+        while (parent != null) {    // stop at base of tree
+            node.getBoundsInScreen(nodeBounds);
+
+            // node movement axis: the axis being moved on (used to find distance)
+            // node bound axis: the axis perpendicular to that (used to exclude nodes not in that immediate direction)
+            int nodeBoundStart = horizontal ? nodeBounds.top : nodeBounds.left;
+            int nodeBoundEnd = horizontal ? nodeBounds.bottom : nodeBounds.right;
+            int nodeBoundAxisPosition = horizontal ? nodeBounds.centerY() : nodeBounds.centerX();
+            int nodeMovementAxisPosition = horizontal ? nodeBounds.centerX() : nodeBounds.centerY();
+
+            NodeRanking nodeRanking = new NodeRanking(nodeMovementAxisPosition, nodeBoundAxisPosition, node);
+
+            List<NodeRanking> siblingRankings = new LinkedList<>();
+            for (int i = 0; i < parent.getChildCount(); i++) {
+                sibling = parent.getChild(i);
+                if (sibling == null) continue;
+                if (sibling.equals(node)) continue;
+
+                sibling.getBoundsInScreen(siblingBounds);
+
+                int siblingBoundStart = horizontal ? siblingBounds.top : siblingBounds.left;
+                int siblingBoundEnd = horizontal ? siblingBounds.bottom : siblingBounds.right;
+                int siblingBoundAxisPosition = horizontal ? siblingBounds.centerY() : siblingBounds.centerX();
+                int siblingMovementAxisPosition = horizontal ? siblingBounds.centerX() : siblingBounds.centerY();
+
+                // rule out nodes not in a direct line in the desired direction
+                if (forward && siblingMovementAxisPosition <= nodeMovementAxisPosition) continue;
+                else if (!forward && siblingMovementAxisPosition >= nodeMovementAxisPosition) continue;
+                else if (siblingBoundStart > nodeBoundEnd) continue;
+                else if (siblingBoundEnd < nodeBoundStart) continue;
+
+                NodeRanking siblingRanking = new NodeRanking(siblingMovementAxisPosition, siblingBoundAxisPosition, sibling);
+                siblingRankings.add(siblingRanking);
+
+            }
+
+            // rank nodes by distance first, then alignment with the origin
+            siblingRankings.sort((s1, s2) -> {
+                if (forward) {
+                    if (s1.movementAxisPosition() > s2.movementAxisPosition()) return 1;
+                    else if (s1.movementAxisPosition() < s2.movementAxisPosition()) return -1;
+                } else {
+                    if (s1.movementAxisPosition() < s2.movementAxisPosition()) return 1;
+                    else if (s1.movementAxisPosition() > s2.movementAxisPosition()) return -1;
+                }
+                return Math.abs(s1.boundAxisPosition() - nodeRanking.boundAxisPosition()) - Math.abs(s2.boundAxisPosition() - nodeRanking.boundAxisPosition());
+            });
+
+            // debug laser beams
+            debugDrawNodeRectGroup(DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATES, siblingRankings.stream().map(NodeRanking::node).toArray(AccessibilityNodeInfo[]::new), DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATES_COLOR);
+            debugDrawRectGroup(DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATE_POSITIONS, List.of(siblingRankings.stream()
+                    .map(nr -> {
+                        Rect rect = new Rect();
+                        if (horizontal) {
+                            rect.set(nr.movementAxisPosition() - 2, 0, nr.movementAxisPosition() + 2, 9999);
+                        } else {
+                            rect.set(0, nr.movementAxisPosition() - 2, 9999, nr.movementAxisPosition() + 2);
+                        }
+                        return rect;
+                    })
+                    .toArray(Rect[]::new)), DEBUG_OVERLAY_FAKE_FOCUS_CANDIDATE_POSITIONS_COLOR);
+            if (!siblingRankings.isEmpty()) {
+                NodeRanking nr = siblingRankings.get(0);
+                Rect rect = new Rect();
+                if (horizontal) {
+                    rect.set(nr.movementAxisPosition() - 5, 0, nr.movementAxisPosition() + 5, 9999);
+                } else {
+                    rect.set(0, nr.movementAxisPosition() - 5, 9999, nr.movementAxisPosition() + 5);
+                }
+                debugDrawRect(DEBUG_OVERLAY_FAKE_FOCUS_FIRST_CANDIDATE, rect, DEBUG_OVERLAY_FAKE_FOCUS_FIRST_CANDIDATE_COLOR);
+            }
+
+            // find the first matching node
+            for (NodeRanking siblingRanking : siblingRankings) {
+                sibling = siblingRanking.node();
+                if (sibling.isFocusable()) return sibling;
+                else if (sibling.isClickable()) return sibling;
+                // could be improved to also get the closest matching node within the sibling, right now it just gets the first matching one.
+                // the areas where this method is useful are already tiny, and none would benefit from doing so.
+                AccessibilityNodeInfo target = traverseNodeChildren(sibling, child -> child.isFocusable() || child.isClickable());
+                if (target != null) return target;
+            }
+
+            // ascend
+            node = parent;
+            parent = parent.getParent();
+        }
+
+        return null;
     }
 
     /**
@@ -511,15 +641,28 @@ public class AccessibilityInputService extends AccessibilityService implements M
         synchronized (cacheLock) {
             oldNode = getOrFindFakeDpadFocusLocked();
             boolean onKeyboard = oldNode == fakeDpadCachedKeyboardFocus;
+            boolean fakeFocus = fakeDpadFakeFocus != null;
 
             if (oldNode == null) {
                 Log.v(TAG, "no focused node, finding one");
                 newNode = findFirstFocusableNode();
+            } else if (fakeFocus) {
+                newNode = fakeFocusSearch(oldNode, direction);
+                fakeDpadFakeFocus = newNode;
             } else {
                 newNode = oldNode.focusSearch(direction);
                 if (newNode == null) {
                     Log.i(TAG, "search returned no node, checking children");
                     newNode = findFirstFocusableChild(oldNode);
+                    if (newNode == null) {
+                        Log.i(TAG, "trying fake focus");
+                        newNode = traverseNodeChildren(oldNode, AccessibilityNodeInfo::isClickable);
+                        if (newNode != null) {
+                            Log.i(TAG, "fake focus acquired");
+                            Log.i(TAG, "clear old focus: " + oldNode.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS));
+                            fakeDpadFakeFocus = newNode;
+                        }
+                    }
                 }
             }
 
@@ -531,6 +674,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 } else {
                     fakeDpadCachedKeyboardFocus = newNode;
                 }
+                fakeDpadFakeFocus = null;
                 cacheLock.notifyAll();
             } else {
                 Log.w(TAG, "focus action failed");
@@ -538,8 +682,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
 
         // debug rectangles
-        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldNode, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
-        debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newNode, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
         if (oldNode != null) debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, oldNode.getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
         if (isDebugOverlayEnabled()) {
             // first focusable node in every window
@@ -555,6 +697,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
             debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
         }
         debugShowMatchingNodes();
+        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldNode, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
+        debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newNode, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
     }
 
     private void fakeDpadSelect() {
@@ -737,7 +881,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress()) {
+            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress() && (fakeDpadFakeFocus == null || !fakeDpadFakeFocus.refresh())) {
                 boolean sent = getImeDpad().map(input -> {
                     input.dpadSelect(type);
                     return true;
