@@ -69,6 +69,7 @@ import io.benwiegand.atvremote.receiver.stuff.FakeKeyDownUpHandler;
 
 public class NotificationInputService extends NotificationListenerService {
     private static final String TAG = NotificationInputService.class.getSimpleName();
+    private static final boolean DEBUG_LOGS = false;
 
     private static final long SEEK_POSITION_POLL_INTERVAL = 250;
     private static final int PLAYBACK_STATE_NULL = -0xdeadbeef;
@@ -233,7 +234,7 @@ public class NotificationInputService extends NotificationListenerService {
             @Override
             public void onPlaybackStateChanged(@Nullable PlaybackState playbackState) {
                 super.onPlaybackStateChanged(playbackState);
-                Log.d(TAG, "playback state changed: " + playbackState);
+                if (DEBUG_LOGS) Log.d(TAG, "playback state changed: " + playbackState);
 
                 int currentState = playbackState == null ? PLAYBACK_STATE_NULL : playbackState.getState();
                 boolean newState = currentState != state.getAndSet(currentState);
@@ -248,7 +249,7 @@ public class NotificationInputService extends NotificationListenerService {
             @Override
             public void onMetadataChanged(@Nullable MediaMetadata metadata) {
                 super.onMetadataChanged(metadata);
-                Log.d(TAG, "metadata changed: " + metadata);
+                if (DEBUG_LOGS) Log.d(TAG, "metadata changed: " + metadata);
                 synchronized (activeSessionsLock) {
                     if (!activeSessionMap.containsKey(uuid)) return;
                     sendMediaMetaUpdate(uuid, mediaController.getPackageName(), metadata);
@@ -283,7 +284,7 @@ public class NotificationInputService extends NotificationListenerService {
             mediaControllers = Collections.emptyList();
 
         synchronized (activeSessionsLock) {
-            Log.d(TAG, "onActiveSessionsChanged(): " + mediaControllers.size() + " active sessions");
+            if (DEBUG_LOGS) Log.d(TAG, "onActiveSessionsChanged(): " + mediaControllers.size() + " active sessions");
 
             List<UUID> newActiveSessionRanking = new ArrayList<>(mediaControllers.size());
             Set<UUID> oldKeys = new HashSet<>(activeSessionMap.keySet());
@@ -301,7 +302,7 @@ public class NotificationInputService extends NotificationListenerService {
             }
 
             // new active session list must be sent before any updates
-            Log.i(TAG, "sending active sessions ranking: " + newActiveSessionRanking);
+            if (DEBUG_LOGS) Log.i(TAG, "sending active sessions ranking: " + newActiveSessionRanking);
             sendMediaSessionsUpdateLocked(newActiveSessionRanking);
             activeSessionRanking = newActiveSessionRanking;
 
