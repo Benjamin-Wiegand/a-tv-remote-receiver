@@ -1,5 +1,6 @@
 package io.benwiegand.atvremote.receiver.network;
 
+import static io.benwiegand.atvremote.receiver.network.NetworkDebugConstants.FIX_PORT_NUMBER;
 import static io.benwiegand.atvremote.receiver.network.SocketUtil.tryClose;
 import static io.benwiegand.atvremote.receiver.protocol.ProtocolConstants.OP_EVENT_STREAM_EVENT;
 
@@ -38,6 +39,7 @@ public class TVRemoteServer extends Service {
     private static final String TAG = TVRemoteServer.class.getSimpleName();
 
     private static final int AUTO_PORT_NUMBER = 0;
+    private static final int TARGET_PORT_NUMBER = FIX_PORT_NUMBER ? 6969 : AUTO_PORT_NUMBER;
 
     private final ServerBinder binder = new ServerBinder();
     private SSLServerSocketFactory serverSocketFactory = null;
@@ -154,8 +156,8 @@ public class TVRemoteServer extends Service {
                 tryClose(serverSocket);
             }
 
-            Log.d(TAG, "starting server socket on port " + AUTO_PORT_NUMBER);
-            serverSocket = (SSLServerSocket) serverSocketFactory.createServerSocket(AUTO_PORT_NUMBER);
+            Log.d(TAG, "starting server socket on port " + TARGET_PORT_NUMBER);
+            serverSocket = (SSLServerSocket) serverSocketFactory.createServerSocket(TARGET_PORT_NUMBER);
             Log.d(TAG, "listening on port " + serverSocket.getLocalPort());
             startAdvertising(serverSocket.getLocalPort());
 

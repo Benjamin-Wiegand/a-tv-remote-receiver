@@ -120,6 +120,7 @@ public class TCPReader implements Closeable {
                 lineBufferPollNotificationLock.notifyAll();
             }
 
+            if (NetworkDebugConstants.NETWORK_DEBUG_LOGS) Log.d(TAG, "RX: " + line);
             return line;
         }
     }
