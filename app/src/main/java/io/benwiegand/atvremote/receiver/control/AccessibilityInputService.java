@@ -451,6 +451,25 @@ public class AccessibilityInputService extends AccessibilityService implements M
         return softKeyboardOpen && softKeyboardWindow != null && imeKeyboardInput == null;
     }
 
+    private boolean isFakeFocusActive() {
+        synchronized (cacheLock) {
+            if (fakeDpadFakeFocus == null) return false;
+            if (fakeDpadFakeFocus.refresh()) return true;
+            clearFakeFocusLocked();
+            return false;
+        }
+    }
+
+    private void fakeFocusNodeLocked(AccessibilityNodeInfo node) {
+        fakeDpadFakeFocus = node;
+        // todo: draw laser beams
+    }
+
+    private void clearFakeFocusLocked() {
+        fakeDpadFakeFocus = null;
+        // todo: erase laser beams
+    }
+
     /**
      * @see #getOrFindFocusedNodeLocked()
      */
@@ -477,34 +496,57 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
-    /**
-     * @see #getOrFindFakeDpadFocus()
-     */
-    private AccessibilityNodeInfo getOrFindFakeDpadFocusLocked() {
-        AccessibilityNodeInfo node = fakeDpadFakeFocus;
-        if (node != null && node.refresh()) {
-            Log.i(TAG, "FAKE HIT");
-            return node;
+    private record FakeDpadFocus(AccessibilityNodeInfo node, Type type) {
+        private enum Type {
+            INPUT_FOCUS,
+            KEYBOARD_FOCUS,
+            FAKE_FOCUS,
         }
-
-        boolean keyboardFocus = isSoftKeyboardUsable();
-        if (!keyboardFocus) return getOrFindFocusedNodeLocked();
-
-        node = fakeDpadCachedKeyboardFocus;
-        if (node != null && node.refresh() && node.isFocused()) {
-            return node;
-        }
-
-        // cache miss, focus search
-        Log.w(TAG, "KEYBOARD/FAKE MISS");
-        fakeDpadCachedKeyboardFocus = findFocusedNode(softKeyboardWindow);
-        cacheLock.notifyAll();
-        return fakeDpadCachedKeyboardFocus;
     }
 
     /**
-     * searches for nodes in a specified direction which are either focusable or clickable by traversing
-     * the view hierarchy.
+     * @see #getOrFindFakeDpadFocus()
+     */
+    private FakeDpadFocus getOrFindFakeDpadFocusLocked() {
+        AccessibilityNodeInfo node = fakeDpadFakeFocus;
+        if (node != null && node.refresh()) {
+            Log.i(TAG, "FAKE HIT");
+            return new FakeDpadFocus(node, FakeDpadFocus.Type.FAKE_FOCUS);
+        } else if (node != null) {
+            clearFakeFocusLocked();
+        }
+
+        boolean keyboardFocus = isSoftKeyboardUsable();
+        if (!keyboardFocus) return new FakeDpadFocus(getOrFindFocusedNodeLocked(), FakeDpadFocus.Type.INPUT_FOCUS);
+
+        node = fakeDpadCachedKeyboardFocus;
+        if (node != null && node.refresh() && node.isFocused())
+            return new FakeDpadFocus(node, FakeDpadFocus.Type.KEYBOARD_FOCUS);
+
+        // cache miss, focus search
+        Log.w(TAG, "KEYBOARD MISS");
+        fakeDpadCachedKeyboardFocus = findFocusedNode(softKeyboardWindow);
+        cacheLock.notifyAll();
+        return new FakeDpadFocus(fakeDpadCachedKeyboardFocus, FakeDpadFocus.Type.KEYBOARD_FOCUS);
+    }
+
+    /**
+     * gets the focus of the fake dpad from the cache.
+     * if that isn't present/focused anymore it performs a focus search.
+     * @return FakeDpadFocus containing the focused node (null if none), and type (input/keyboard/fake).
+     * the return value itself will never be null.
+     */
+    private FakeDpadFocus getOrFindFakeDpadFocus() {
+        synchronized (cacheLock) {
+            return getOrFindFakeDpadFocusLocked();
+        }
+    }
+
+    /**
+     * <p>
+     *     searches for nodes in a specified direction which are either focusable or clickable by
+     *     traversing the view hierarchy.
+     * </p>
      * it is not very good, but it allows navigation of some areas that were previously unreachable
      * by fake dpad, so it's better than nothing.
      * part of the reason why it sucks is that when scroll views are scrolled via accessibility nodes,
@@ -513,7 +555,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
      * @param direction the direction to look in
      * @return the closest node in that direction, or null if none
      */
-    private AccessibilityNodeInfo fakeFocusSearch(AccessibilityNodeInfo fromNode, int direction) {
+    private AccessibilityNodeInfo fakeDpadFakeFocusSearch(AccessibilityNodeInfo fromNode, int direction) {
+        Log.i(TAG, "fake focus search in direction " + direction);
         fromNode.refresh();
         Rect nodeBounds = new Rect(), siblingBounds = new Rect();
         AccessibilityNodeInfo sibling;
@@ -617,14 +660,61 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     /**
-     * gets the focus of the fake dpad from the cache.
-     * if that isn't present/focused anymore it performs a focus search.
-     * @return the focused node of the fake dpad, or null if there is none
+     * searches for nodes in a direction for fake dpad. the ideal situation semantically would be for
+     * this to equate to the next highlighted node when pressing a real dpad arrow in that direction.
+     * In reality, it's more complicated than that.
+     * @param oldFocus the current fake dpad focus
+     * @param direction direction to search in (using View.FOCUS_[direction] constants)
+     * @return FakeDpadFocus representing the located node, or null if none. the node within this will never be null.
      */
-    private AccessibilityNodeInfo getOrFindFakeDpadFocus() {
-        synchronized (cacheLock) {
-            return getOrFindFakeDpadFocusLocked();
+    private FakeDpadFocus fakeDpadFocusSearch(FakeDpadFocus oldFocus, int direction) {
+        if (oldFocus.node() == null) {
+            Log.i(TAG, "no focused node, finding one");
+            AccessibilityNodeInfo newNode = null;
+            switch (oldFocus.type()) {
+                case INPUT_FOCUS -> newNode = findFirstFocusableNode(); // look in active window
+                case KEYBOARD_FOCUS -> newNode = findFirstFocusableNode(softKeyboardWindow); // look in keyboard
+                case FAKE_FOCUS -> Log.wtf(TAG, "fake focus with null node?!"); // null fake focus node means no fake focus
+            }
+            // don't acquire fake focus due to performance concerns.
+            // it's expensive, and games and streaming apps that don't use real views would fall
+            // here after failing ime key event drop detection.
+            // (in an ideal world ime key event drop detection would be more accurate)
+            if (newNode == null) return null;
+            return new FakeDpadFocus(newNode, oldFocus.type());
         }
+
+        if (oldFocus.type() == FakeDpadFocus.Type.FAKE_FOCUS) {
+            // find a new fake focus
+            AccessibilityNodeInfo newNode = fakeDpadFakeFocusSearch(oldFocus.node(), direction);
+            if (newNode != null)
+                return new FakeDpadFocus(newNode, FakeDpadFocus.Type.FAKE_FOCUS);
+        }
+
+        // focus search
+        AccessibilityNodeInfo newNode = oldFocus.node().focusSearch(direction);
+        if (newNode != null)
+            return new FakeDpadFocus(newNode, oldFocus.type());
+
+        Log.i(TAG, "focus search returned no node, checking children");
+        newNode = findFirstFocusableChild(oldFocus.node());
+        if (newNode != null)
+            return new FakeDpadFocus(newNode, oldFocus.type());
+
+        if (oldFocus.type() == FakeDpadFocus.Type.FAKE_FOCUS) // already tried fake focus search
+            return null;
+
+        Log.i(TAG, "trying to acquire fake focus");
+        // look through children first because this might be a focusable container with clickable
+        // elements within (like ime switcher or play movies and tv open source licenses)
+        newNode = traverseNodeChildren(oldFocus.node(), AccessibilityNodeInfo::isClickable);
+
+        // a fake focus search could be done here to look for unreachable nodes, but due to the
+        // scrolling bug (mentioned in javadoc for fakeDpadFakeFocusSearch()) it would have erratic results
+        if (newNode == null) return null;
+
+        Log.i(TAG, "fake focus acquired");
+        return new FakeDpadFocus(newNode, FakeDpadFocus.Type.FAKE_FOCUS);
     }
 
     /**
@@ -639,83 +729,87 @@ public class AccessibilityInputService extends AccessibilityService implements M
         // this still sucks, but less now
         Log.v(TAG, "faking dpad in direction " + direction);
 
-        AccessibilityNodeInfo oldNode, newNode;
-        synchronized (cacheLock) {
-            oldNode = getOrFindFakeDpadFocusLocked();
-            boolean onKeyboard = oldNode == fakeDpadCachedKeyboardFocus;
-            boolean fakeFocus = fakeDpadFakeFocus != null;
 
-            if (oldNode == null) {
-                Log.v(TAG, "no focused node, finding one");
-                newNode = findFirstFocusableNode();
-            } else if (fakeFocus) {
-                newNode = fakeFocusSearch(oldNode, direction);
-                fakeDpadFakeFocus = newNode;
+        FakeDpadFocus oldFocus, newFocus;
+        synchronized (cacheLock) {
+            oldFocus = getOrFindFakeDpadFocusLocked();
+            newFocus = fakeDpadFocusSearch(oldFocus, direction);
+
+            if (newFocus == null) {
+                Log.w(TAG, "fake dpad focus search failed");
             } else {
-                newNode = oldNode.focusSearch(direction);
-                if (newNode == null) {
-                    Log.i(TAG, "search returned no node, checking children");
-                    newNode = findFirstFocusableChild(oldNode);
-                    if (newNode == null) {
-                        Log.i(TAG, "trying fake focus");
-                        newNode = traverseNodeChildren(oldNode, AccessibilityNodeInfo::isClickable);
-                        if (newNode != null) {
-                            Log.i(TAG, "fake focus acquired");
-                            Log.i(TAG, "clear old focus: " + oldNode.performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS));
-                            fakeDpadFakeFocus = newNode;
+                if (newFocus.type() == FakeDpadFocus.Type.FAKE_FOCUS) {
+                    boolean upgraded = false;
+                    if (oldFocus.type() != FakeDpadFocus.Type.FAKE_FOCUS) {
+                        Log.i(TAG, "switching to fake focus");
+
+                        // need to clear real focus
+                        if (!oldFocus.node().performAction(AccessibilityNodeInfo.ACTION_CLEAR_FOCUS))
+                            Log.w(TAG, "failed to clear old real focus for fake focus");
+                    }
+
+                    // try upgrading to real focus
+                    if (newFocus.node().isFocusable() && tryFocusNode(newFocus.node())) {
+                        if (newFocus.node().refresh() && newFocus.node().isFocusable()) {
+                            Log.i(TAG, "fake focus upgraded to real focus");
+                            clearFakeFocusLocked();
+                            upgraded = true;
+                        } else {
+                            Log.w(TAG, "fake focus upgrade failed: focus succeeded but node not focused");
                         }
                     }
-                }
-            }
 
-            if (newNode == null) {
-                Log.i(TAG, "no node found");
-            } else if (tryFocusNode(newNode)) {
-                if (!onKeyboard) {
-                    cachedInputFocus = newNode;
-                } else {
-                    fakeDpadCachedKeyboardFocus = newNode;
+                    if (!upgraded)
+                        fakeFocusNodeLocked(newFocus.node());
+
+                } else if (tryFocusNode(newFocus.node())) { // implied that node is focusable
+                    switch (newFocus.type()) {
+                        case INPUT_FOCUS -> cachedInputFocus = newFocus.node();
+                        case KEYBOARD_FOCUS -> fakeDpadCachedKeyboardFocus = newFocus.node();
+                    }
+                    cacheLock.notifyAll();
+
+                } else { // implied that node is focusable
+                    Log.w(TAG, "focus action failed");
+
+                    // workaround for google tv home screen:
+                    // the top bar is a focusable group, but focusing it returns false.
+                    // it contains focusable buttons within though, so look for one and focus it.
+                    AccessibilityNodeInfo child = findFirstFocusableChild(newFocus.node());
+                    if (tryFocusNode(child)) {
+                        Log.i(TAG, "child focus fallback succeeded");
+                    }
                 }
-                fakeDpadFakeFocus = null;
-                cacheLock.notifyAll();
-            } else {
-                // workaround for google tv home screen
-                AccessibilityNodeInfo child = findFirstFocusableChild(newNode);
-                if (tryFocusNode(child)) {
-                    Log.d(TAG, "used child focus fallback");
-                    return;
-                }
-                Log.w(TAG, "focus action failed");
             }
         }
 
         // debug rectangles
-        if (oldNode != null) debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, oldNode.getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
-        if (isDebugOverlayEnabled()) {
-            // first focusable node in every window
-            AccessibilityNodeInfo[] nodes = getWindows().stream()
-                    .map(window -> {
-                        AccessibilityNodeInfo root = window.getRoot();
-                        if (root == null) return null;
-                        return findFirstFocusableNode(window);
-                    })
-                    .filter(Objects::nonNull)
-                    .toArray(AccessibilityNodeInfo[]::new);
+        if (!isDebugOverlayEnabled()) return;
+        if (oldFocus.node() != null)
+            debugDrawRect(DEBUG_OVERLAY_ACTIVE_WINDOW, oldFocus.node().getWindow(), DEBUG_OVERLAY_ACTIVE_WINDOW_COLOR);
+        // first focusable node in every window
+        AccessibilityNodeInfo[] nodes = getWindows().stream()
+                .map(window -> {
+                    AccessibilityNodeInfo root = window.getRoot();
+                    if (root == null) return null;
+                    return findFirstFocusableNode(window);
+                })
+                .filter(Objects::nonNull)
+                .toArray(AccessibilityNodeInfo[]::new);
 
-            debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
-        }
+        debugDrawNodeRectGroup(DEBUG_OVERLAY_FOCUSABLE_WINDOWS, nodes, DEBUG_OVERLAY_FOCUSABLE_WINDOWS_COLOR);
         debugShowMatchingNodes();
-        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldNode, DEBUG_OVERLAY_OLD_FOCUS_COLOR);
-        debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newNode, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
+        debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldFocus.node(), DEBUG_OVERLAY_OLD_FOCUS_COLOR);
+        debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newFocus != null ? newFocus.node() : null, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
     }
 
     private void fakeDpadSelect() {
-        AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
+        AccessibilityNodeInfo node = getOrFindFakeDpadFocus().node();
         if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
     }
 
     private boolean fakeDpadLongPress() {
-        AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
+        AccessibilityNodeInfo node = getOrFindFakeDpadFocus().node();
         return node != null && node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
     }
 
@@ -852,7 +946,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadLongPress() {
-            AccessibilityNodeInfo node = getOrFindFakeDpadFocus();
+            AccessibilityNodeInfo node = getOrFindFakeDpadFocus().node();
             if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
         }
     }
@@ -889,7 +983,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress() && (fakeDpadFakeFocus == null || !fakeDpadFakeFocus.refresh())) {
+            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress() && !isFakeFocusActive()) {
                 boolean sent = getImeDpad().map(input -> {
                     input.dpadSelect(type);
                     return true;
