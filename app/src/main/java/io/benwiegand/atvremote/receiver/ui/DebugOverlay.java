@@ -15,14 +15,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import io.benwiegand.atvremote.receiver.R;
-
 public class DebugOverlay extends MakeshiftActivity {
 
     private final Map<String, View> rectangles = new HashMap<>();
 
     public DebugOverlay(Context context) {
-        super(context, R.layout.layout_debug_overlay, new WindowManager.LayoutParams(
+        super(context, new FrameLayout(context), new WindowManager.LayoutParams(
                 WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
                 WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
                         | WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
