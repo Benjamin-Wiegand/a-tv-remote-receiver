@@ -54,6 +54,7 @@ import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 import io.benwiegand.atvremote.receiver.ui.DebugOverlay;
+import io.benwiegand.atvremote.receiver.ui.FakeFocusOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
@@ -123,6 +124,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     private NotificationOverlay notificationOverlay = null;
 
+    private FakeFocusOverlay fakeFocusOverlay = null;
+
     private DebugOverlay debugOverlay = null;
     private NodeCondition debugShowMatchingNodesCondition = null;
 
@@ -166,6 +169,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
         cursorInput = new AccessibilityGestureCursor(this);
         notificationOverlay = new NotificationOverlay(this);
         notificationOverlay.start();
+        fakeFocusOverlay = new FakeFocusOverlay(this);
+        fakeFocusOverlay.start();
 
         if (USES_IME_DPAD_ASSIST) {
             MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), imeInputServiceConnection);
@@ -462,12 +467,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     private void fakeFocusNodeLocked(AccessibilityNodeInfo node) {
         fakeDpadFakeFocus = node;
-        // todo: draw laser beams
+        fakeFocusOverlay.drawHighlight(node);
     }
 
     private void clearFakeFocusLocked() {
         fakeDpadFakeFocus = null;
-        // todo: erase laser beams
+        fakeFocusOverlay.removeHighlight();
     }
 
     /**
@@ -762,23 +767,30 @@ public class AccessibilityInputService extends AccessibilityService implements M
                     if (!upgraded)
                         fakeFocusNodeLocked(newFocus.node());
 
-                } else if (tryFocusNode(newFocus.node())) { // implied that node is focusable
-                    switch (newFocus.type()) {
-                        case INPUT_FOCUS -> cachedInputFocus = newFocus.node();
-                        case KEYBOARD_FOCUS -> fakeDpadCachedKeyboardFocus = newFocus.node();
-                    }
-                    cacheLock.notifyAll();
-
                 } else { // implied that node is focusable
-                    Log.w(TAG, "focus action failed");
-
-                    // workaround for google tv home screen:
-                    // the top bar is a focusable group, but focusing it returns false.
-                    // it contains focusable buttons within though, so look for one and focus it.
-                    AccessibilityNodeInfo child = findFirstFocusableChild(newFocus.node());
-                    if (tryFocusNode(child)) {
-                        Log.i(TAG, "child focus fallback succeeded");
+                    if (oldFocus.type() == FakeDpadFocus.Type.FAKE_FOCUS) {
+                        clearFakeFocusLocked();
                     }
+
+                    if (tryFocusNode(newFocus.node())) {
+                        switch (newFocus.type()) {
+                            case INPUT_FOCUS -> cachedInputFocus = newFocus.node();
+                            case KEYBOARD_FOCUS -> fakeDpadCachedKeyboardFocus = newFocus.node();
+                        }
+                        cacheLock.notifyAll();
+
+                    } else {
+                        Log.w(TAG, "focus action failed");
+
+                        // workaround for google tv home screen:
+                        // the top bar is a focusable group, but focusing it returns false.
+                        // it contains focusable buttons within though, so look for one and focus it.
+                        AccessibilityNodeInfo child = findFirstFocusableChild(newFocus.node());
+                        if (tryFocusNode(child)) {
+                            Log.i(TAG, "child focus fallback succeeded");
+                        }
+                    }
+
                 }
             }
         }
@@ -954,7 +966,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     public class AssistedImeDirectionalPadInputHandler implements DirectionalPadInput {
 
         private boolean shouldUseImeDpad() {
-            return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable();
+            return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable() && !isFakeFocusActive();
         }
 
         @Override
@@ -983,7 +995,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress() && !isFakeFocusActive()) {
+            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress()) {
                 boolean sent = getImeDpad().map(input -> {
                     input.dpadSelect(type);
                     return true;
