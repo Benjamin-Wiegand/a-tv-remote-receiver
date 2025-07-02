@@ -112,11 +112,7 @@ public class ControlSourceConnectionManager {
                     }
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
-                () -> {
-                    synchronized (inputLock) {
-                        return accessibilityOverlayOutput;
-                    }
-                }
+                () -> lockForControls(() -> accessibilityOverlayOutput, R.string.control_source_not_loaded_accessibility)
         );
 
         // "bind" accessibility service

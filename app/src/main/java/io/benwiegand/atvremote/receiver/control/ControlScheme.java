@@ -91,7 +91,11 @@ public class ControlScheme {
     }
 
     public Optional<OverlayOutput> getOverlayOutputOptional() {
-        return Optional.ofNullable(overlayOutputSupplier.get());
+        try {
+            return Optional.ofNullable(overlayOutputSupplier.get());
+        } catch (Throwable t) {
+            return Optional.empty();
+        }
     }
 
 }
