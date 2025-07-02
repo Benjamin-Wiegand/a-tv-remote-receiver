@@ -61,7 +61,7 @@ import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
 public class AccessibilityInputService extends AccessibilityService implements MakeshiftBindCallback {
     private static final String TAG = AccessibilityInputService.class.getSimpleName();
-    private static final boolean DEBUG_LOGS_UI_UPDATE = true;
+    private static final boolean DEBUG_LOGS_UI_UPDATE = false;
 
     /**
      * fake dpad is necessary because:
