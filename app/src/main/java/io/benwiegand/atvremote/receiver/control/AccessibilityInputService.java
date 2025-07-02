@@ -778,7 +778,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
                     // try upgrading to real focus
                     if (newFocus.node().isFocusable() && tryFocusNode(newFocus.node())) {
-                        if (newFocus.node().refresh() && newFocus.node().isFocusable()) {
+                        if (newFocus.node().refresh() && newFocus.node().isFocused()) {
                             Log.i(TAG, "fake focus upgraded to real focus");
                             clearFakeFocusLocked();
                             upgraded = true;
