@@ -588,8 +588,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
      * </p>
      * it is not very good, but it allows navigation of some areas that were previously unreachable
      * by fake dpad, so it's better than nothing.
-     * part of the reason why it sucks is that when scroll views are scrolled via accessibility nodes,
-     * everything explodes. I have no mitigation for that yet, apart from just not letting scrolling happen.
      * @param fromNode the originating node
      * @param direction the direction to look in
      * @return the closest node in that direction, or null if none
@@ -748,8 +746,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
         // elements within (like ime switcher or play movies and tv open source licenses)
         newNode = traverseNodeChildren(oldFocus.node(), AccessibilityNodeInfo::isClickable);
 
-        // a fake focus search could be done here to look for unreachable nodes, but due to the
-        // scrolling bug (mentioned in javadoc for fakeDpadFakeFocusSearch()) it would have erratic results
+        if (newNode == null)
+            newNode = fakeDpadFakeFocusSearch(oldFocus.node(), direction);
+
         if (newNode == null) return null;
 
         Log.i(TAG, "fake focus acquired");
