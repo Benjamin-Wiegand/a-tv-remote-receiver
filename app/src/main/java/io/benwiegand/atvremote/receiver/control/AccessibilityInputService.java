@@ -50,6 +50,7 @@ import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.PairingCallback;
 import io.benwiegand.atvremote.receiver.protocol.json.SurroundingTextResponse;
 import io.benwiegand.atvremote.receiver.stuff.FakeKeyDownUpHandler;
+import io.benwiegand.atvremote.receiver.stuff.NotifyingSerialInt;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
@@ -60,6 +61,7 @@ import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 
 public class AccessibilityInputService extends AccessibilityService implements MakeshiftBindCallback {
     private static final String TAG = AccessibilityInputService.class.getSimpleName();
+    private static final boolean DEBUG_LOGS_UI_UPDATE = true;
 
     /**
      * fake dpad is necessary because:
@@ -85,7 +87,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     /**
      * milliseconds to wait for ime input to propagate before falling back to fake dpad
      */
-    private static final long IME_ASSIST_WAIT_TIMEOUT = 100;
+    private static final long IME_ASSIST_WAIT_TIMEOUT = 500;
 
     private static final int FOCUS_HORIZONTAL_MASK = 0x50;
 
@@ -156,6 +158,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private AccessibilityNodeInfo cachedInputFocus = null;
     private AccessibilityNodeInfo fakeDpadCachedKeyboardFocus = null;
     private AccessibilityNodeInfo fakeDpadFakeFocus = null;
+
+    // serial advanced on every noted ui update
+    // used to detect if ime inputs are doing things
+    private final NotifyingSerialInt uiUpdateSerial = new NotifyingSerialInt();
 
 
     @SuppressLint("InlinedApi")
@@ -245,6 +251,23 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
+        switch (event.getEventType()) {
+            case AccessibilityEvent.TYPE_VIEW_CLICKED:
+            case AccessibilityEvent.TYPE_VIEW_CONTEXT_CLICKED:
+            case AccessibilityEvent.TYPE_VIEW_FOCUSED:
+            case AccessibilityEvent.TYPE_VIEW_LONG_CLICKED:
+            case AccessibilityEvent.TYPE_VIEW_SCROLLED:
+            case AccessibilityEvent.TYPE_VIEW_SELECTED:
+            case AccessibilityEvent.TYPE_VIEW_TARGETED_BY_SCROLL:
+            case AccessibilityEvent.TYPE_VIEW_TEXT_CHANGED:
+            case AccessibilityEvent.TYPE_VIEW_TEXT_SELECTION_CHANGED:
+            case AccessibilityEvent.TYPE_WINDOWS_CHANGED:
+            case AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED:
+            case AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED:
+                int serial = uiUpdateSerial.advance();
+                if (DEBUG_LOGS_UI_UPDATE) Log.d(TAG, "ui update - new serial = " + serial);
+            default:
+        }
 
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             Log.d(TAG, "windows changed event");
@@ -874,38 +897,29 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     private boolean tryImeDpad(KeyEventType type, BiConsumer<DirectionalPadInput, KeyEventType> imeDpadOperation) {
-        return getImeDpad().map(
-                        input -> {
-                            // only one at a time
-                            boolean allowFallback = type != KeyEventType.UP && imeDpadAssistLimiter.tryAcquire();
-                            if (!allowFallback) {
-                                imeDpadOperation.accept(input, type);
-                                return true;
-                            }
+        return getImeDpad().map(input -> {
+            // only one at a time
+            boolean allowFallback = type != KeyEventType.UP && imeDpadAssistLimiter.tryAcquire();
+            if (!allowFallback) {
+                imeDpadOperation.accept(input, type);
+                return true;
+            }
 
-                            try {
-                                AccessibilityNodeInfo initialFocus = getOrFindFocusedNode();
-                                imeDpadOperation.accept(input, type);
-                                synchronized (cacheLock) {
-                                    AccessibilityNodeInfo newFocus = getOrFindFocusedNodeLocked();
-                                    if (!Objects.equals(initialFocus, newFocus)) return true;
-                                    // the new caching system is so fast it gets here before the key event
-                                    // has had time to propagate. I would really like to find a better way
-                                    // to do this fallback.
-                                    cacheLock.wait(IME_ASSIST_WAIT_TIMEOUT);
-                                    newFocus = getOrFindFocusedNodeLocked();
-                                    if (!Objects.equals(initialFocus, newFocus)) return true;
-                                }
+            try {
+                int initialSerial = uiUpdateSerial.get();
+                if (DEBUG_LOGS_UI_UPDATE) Log.d(TAG, "ime dpad assist - initial serial = " + initialSerial);
 
-                                Log.e(TAG, "ime breakage? falling back");
-                                return false;
-                            } catch (InterruptedException ignored) {
-                                return true;
-                            } finally {
-                                imeDpadAssistLimiter.release();
-                            }
-                        })
-                .orElse(false);
+                imeDpadOperation.accept(input, type);
+                if (!uiUpdateSerial.waitWhileValid(initialSerial, IME_ASSIST_WAIT_TIMEOUT)) return true;
+
+                Log.e(TAG, "ime breakage? falling back");
+                return false;
+            } catch (InterruptedException ignored) {
+                return true;
+            } finally {
+                imeDpadAssistLimiter.release();
+            }
+        }).orElse(false);
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
@@ -995,13 +1009,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (shouldUseImeDpad() && !fakeSelectButtonHandler.isHandlingKeyPress()) {
-                boolean sent = getImeDpad().map(input -> {
-                    input.dpadSelect(type);
-                    return true;
-                }).orElse(false);
-                if (sent) return;
-            }
+            if (shouldUseImeDpad()
+                    && !fakeSelectButtonHandler.isHandlingKeyPress()
+                    && tryImeDpad(type, DirectionalPadInput::dpadSelect))
+                return;
 
             fakeSelectButtonHandler.onKeyEvent(type);
         }
