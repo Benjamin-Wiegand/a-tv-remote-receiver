@@ -44,8 +44,7 @@ public class FakeFocusOverlay extends MakeshiftActivity {
     @Override
     public void start() {
         super.start();
-        // todo
-//        hide();
+        hide();
     }
 
     private int getBorderThickness() {
@@ -90,6 +89,7 @@ public class FakeFocusOverlay extends MakeshiftActivity {
             int targetHeight = highlightRect.height() + borderThickness * 2;
 
             if (highlightView == null) {
+                show();
                 highlightView = inflateFakeFocusHighlight();
 
                 highlightView.setTranslationX(targetX);
@@ -130,14 +130,18 @@ public class FakeFocusOverlay extends MakeshiftActivity {
             if (highlightView == null) return;
             ViewGroup rootViewGroup = (ViewGroup) root;
 
-            highlightView.animate()
+            View oldHighlightView = highlightView;
+            highlightView = null;
+
+            oldHighlightView.animate()
                     .setDuration(ANIMATE_OUT_DURATION)
                     .setInterpolator(UiUtil.REVERSE)
-                    .setUpdateListener(crtAnimation(highlightView, getBorderThickness()))
-                    .withEndAction(() -> rootViewGroup.removeView(highlightView))
+                    .setUpdateListener(crtAnimation(oldHighlightView, getBorderThickness()))
+                    .withEndAction(() -> runOnUiThread(() -> {
+                        rootViewGroup.removeView(oldHighlightView);
+                        if (highlightView == null) hide();
+                    }))
                     .start();
-
-            highlightView = null;
         });
     }
 
