@@ -272,7 +272,14 @@ public class AccessibilityInputService extends AccessibilityService implements M
         if (event.getEventType() == AccessibilityEvent.TYPE_WINDOWS_CHANGED) {
             Log.d(TAG, "windows changed event");
             checkSoftKeyboard(event);
+        } else if (event.getEventType() == AccessibilityEvent.TYPE_VIEW_FOCUSED) {
+            Log.d(TAG, "view focused event");
+        } else {
+            return;
         }
+
+        // check in new thread to avoid deadlock (this event might be caused by fakeDpad
+        new Thread(this::checkFakeFocus).start();
     }
 
     private boolean isDebugOverlayEnabled() {
@@ -486,6 +493,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
             clearFakeFocusLocked();
             return false;
         }
+    }
+
+    private void checkFakeFocus() {
+        isFakeFocusActive();
     }
 
     private void fakeFocusNodeLocked(AccessibilityNodeInfo node) {
