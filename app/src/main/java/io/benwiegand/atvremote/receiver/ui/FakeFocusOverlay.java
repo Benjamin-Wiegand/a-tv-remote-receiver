@@ -26,12 +26,15 @@ public class FakeFocusOverlay extends MakeshiftActivity {
     private static final long ANIMATE_MOVE_DURATION = 100;
     private static final long ANIMATE_OUT_DURATION = 150;
 
+    private static final long HIGHLIGHT_UPDATE_INTERVAL = 50;
+
     private static final float FAKE_FOCUS_HIGHLIGHT_STROKE_THICKNESS_DP = 3;
     private static final int FAKE_FOCUS_HIGHLIGHT_MIDDLE_COLOR = 0x4264b5d8;
     private static final int FAKE_FOCUS_HIGHLIGHT_BORDER_COLOR = 0xde4dbeef;
 
     private View highlightView = null;
     private final Rect highlightRect = new Rect();
+    private AccessibilityNodeInfo focusedNode = null;
 
     public FakeFocusOverlay(Context context) {
         super(context, new FrameLayout(context), new WindowManager.LayoutParams(
@@ -73,14 +76,14 @@ public class FakeFocusOverlay extends MakeshiftActivity {
         return view;
     }
 
-
     public void drawHighlight(AccessibilityNodeInfo node) {
         runOnUiThread(() -> {
-            highlightRect.setEmpty();
-            node.getBoundsInScreen(highlightRect);
-            Log.d(TAG, "drawing focus highlight: " + highlightRect);
+            focusedNode = node;
+            if (highlightView != null) return;
 
+            show();
             ViewGroup rootViewGroup = (ViewGroup) root;
+            focusedNode.getBoundsInScreen(highlightRect);
 
             int borderThickness = getBorderThickness();
             float targetX = highlightRect.left - borderThickness;
@@ -88,39 +91,64 @@ public class FakeFocusOverlay extends MakeshiftActivity {
             int targetWidth = highlightRect.width() + borderThickness * 2;
             int targetHeight = highlightRect.height() + borderThickness * 2;
 
-            if (highlightView == null) {
-                show();
-                highlightView = inflateFakeFocusHighlight();
+            highlightView = inflateFakeFocusHighlight();
 
-                highlightView.setTranslationX(targetX);
-                highlightView.setTranslationY(targetY);
-                FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(targetWidth, targetHeight);
-                rootViewGroup.addView(highlightView, layoutParams);
+            highlightView.setTranslationX(targetX);
+            highlightView.setTranslationY(targetY);
+            FrameLayout.LayoutParams layoutParams = new FrameLayout.LayoutParams(targetWidth, targetHeight);
+            rootViewGroup.addView(highlightView, layoutParams);
 
-                // animate fade in and height expanding from 0
-                highlightView.animate()
-                        .setDuration(ANIMATE_IN_DURATION)
-                        .setUpdateListener(crtAnimation(highlightView, borderThickness))
-                        .start();
-            } else {
+            highlightView.animate()
+                    .setDuration(ANIMATE_IN_DURATION)
+                    .setUpdateListener(crtAnimation(highlightView, borderThickness))
+                    .start();
 
-                ViewGroup.LayoutParams layoutParams = highlightView.getLayoutParams();
-                int startWidth = layoutParams.width;
-                int startHeight = layoutParams.height;
+            getHandler().postDelayed(this::updateHighlightBounds, HIGHLIGHT_UPDATE_INTERVAL);
+        });
+    }
 
-                highlightView.animate()
-                        .setDuration(ANIMATE_MOVE_DURATION)
-                        .setInterpolator(UiUtil.EASE_OUT)
-                        .translationX(targetX)
-                        .translationY(targetY)
-                        .setUpdateListener(animation -> {
-                            layoutParams.width = (int) (startWidth + (targetWidth - startWidth) * animation.getAnimatedFraction());
-                            layoutParams.height = (int) (startHeight + (targetHeight - startHeight) * animation.getAnimatedFraction());
-                            highlightView.setLayoutParams(layoutParams);
-                        })
-                        .start();
+    private void updateHighlightBounds() {
+        Rect oldHighlightRect = new Rect(highlightRect);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (focusedNode == null) return;
 
+                oldHighlightRect.set(highlightRect);
+                focusedNode.getBoundsInScreen(highlightRect);
+                if (!oldHighlightRect.equals(highlightRect))
+                    updateHighlight();
+
+                getHandler().postDelayed(this, HIGHLIGHT_UPDATE_INTERVAL);
             }
+        });
+    }
+
+    private void updateHighlight() {
+        runOnUiThread(() -> {
+            Log.d(TAG, "updating highlight");
+
+            int borderThickness = getBorderThickness();
+            float targetX = highlightRect.left - borderThickness;
+            float targetY = highlightRect.top - borderThickness;
+            int targetWidth = highlightRect.width() + borderThickness * 2;
+            int targetHeight = highlightRect.height() + borderThickness * 2;
+
+            ViewGroup.LayoutParams layoutParams = highlightView.getLayoutParams();
+            int startWidth = layoutParams.width;
+            int startHeight = layoutParams.height;
+
+            highlightView.animate()
+                    .setDuration(ANIMATE_MOVE_DURATION)
+                    .setInterpolator(UiUtil.EASE_OUT)
+                    .translationX(targetX)
+                    .translationY(targetY)
+                    .setUpdateListener(animation -> {
+                        layoutParams.width = (int) (startWidth + (targetWidth - startWidth) * animation.getAnimatedFraction());
+                        layoutParams.height = (int) (startHeight + (targetHeight - startHeight) * animation.getAnimatedFraction());
+                        highlightView.setLayoutParams(layoutParams);
+                    })
+                    .start();
 
         });
     }
@@ -132,6 +160,7 @@ public class FakeFocusOverlay extends MakeshiftActivity {
 
             View oldHighlightView = highlightView;
             highlightView = null;
+            focusedNode = null;
 
             oldHighlightView.animate()
                     .setDuration(ANIMATE_OUT_DURATION)

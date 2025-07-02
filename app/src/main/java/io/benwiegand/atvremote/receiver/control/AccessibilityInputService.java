@@ -730,6 +730,13 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         // focus search
         AccessibilityNodeInfo newNode = oldFocus.node().focusSearch(direction);
+
+//        // uncomment to test fake focus
+//        // also comment out focus upgrade in fakeDpad()
+//        AccessibilityNodeInfo node = fakeDpadFakeFocusSearch(oldFocus.node(), direction);
+//        if (node != null) return new FakeDpadFocus(node, FakeDpadFocus.Type.FAKE_FOCUS);
+//        newNode = null;
+
         if (newNode != null)
             return new FakeDpadFocus(newNode, oldFocus.type());
 
