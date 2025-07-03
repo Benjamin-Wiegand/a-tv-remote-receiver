@@ -929,7 +929,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 imeDpadOperation.accept(input, type);
                 if (!uiUpdateSerial.waitWhileValid(initialSerial, IME_ASSIST_WAIT_TIMEOUT)) return true;
 
-                Log.e(TAG, "ime breakage? falling back");
+                Log.w(TAG, "ime key event dropped?");
                 return false;
             } catch (InterruptedException ignored) {
                 return true;
@@ -996,6 +996,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     public class AssistedImeDirectionalPadInputHandler implements DirectionalPadInput {
 
+        // select button state needs to be tracked for appropriate fallback behavior
+        private final Object selectStateLock = new Object();
+        private boolean selectPressed = false;
+        private boolean selectHeld = false;
+        private int selectInitialUiSerial = -1;
+
         private boolean shouldUseImeDpad() {
             return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable() && !isFakeFocusActive();
         }
@@ -1026,12 +1032,63 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (shouldUseImeDpad()
-                    && !fakeSelectButtonHandler.isHandlingKeyPress()
-                    && tryImeDpad(type, DirectionalPadInput::dpadSelect))
+            if (fakeSelectButtonHandler.isHandlingKeyPress() || !shouldUseImeDpad()) {
+                fakeSelectButtonHandler.onKeyEvent(type);
                 return;
+            }
 
-            fakeSelectButtonHandler.onKeyEvent(type);
+            switch (type) {
+                case CLICK -> {
+                    if (!tryImeDpad(type, DirectionalPadInput::dpadSelect))
+                        fakeSelectButtonHandler.onKeyEvent(type);
+                }
+                case DOWN -> {
+                    getImeDpad().ifPresentOrElse(input -> {
+                        synchronized (selectStateLock) {
+                            if (!selectPressed) {
+                                selectPressed = true;
+                                selectInitialUiSerial = uiUpdateSerial.get();
+                            } else if (!selectHeld) {
+                                selectHeld = true;
+                            }
+                        }
+                        input.dpadSelect(type);
+                    }, () -> {
+                        synchronized (selectStateLock) {
+                            selectPressed = false;
+                            selectHeld = false;
+                            fakeSelectButtonHandler.onKeyEvent(type);
+                        }
+                    });
+                }
+                case UP -> {
+                    int currSelectInitialUiSerial;
+                    boolean currSelectPressed, currSelectHeld;
+                    synchronized (selectStateLock) {
+                        currSelectInitialUiSerial = selectInitialUiSerial;
+                        currSelectPressed = selectPressed;
+                        currSelectHeld = selectHeld;
+                        selectPressed = false;
+                        selectHeld = false;
+                    }
+
+                    getImeDpad().ifPresent(input -> input.dpadSelect(type));
+
+                    if (DEBUG_LOGS_UI_UPDATE) Log.d(TAG, "select ime fallback debug: \n ui serial = " + selectInitialUiSerial + "\n pressed = " + currSelectPressed + "\n held = " + currSelectHeld);
+                    try {
+                        if (!uiUpdateSerial.waitWhileValid(currSelectInitialUiSerial, IME_ASSIST_WAIT_TIMEOUT)) return;
+                    } catch (InterruptedException ignored) {}
+                    if (currSelectHeld) {
+                        Log.i(TAG, "select ime fallback long press");
+                        directionalPadInput.dpadLongPress();
+                    } else if (currSelectPressed) {
+                        Log.i(TAG, "select ime fallback click");
+                        fakeSelectButtonHandler.onKeyEvent(KeyEventType.CLICK);
+                    } else {
+                        Log.d(TAG, "select ime fallback dropped");
+                    }
+                }
+            }
         }
 
         @Override
