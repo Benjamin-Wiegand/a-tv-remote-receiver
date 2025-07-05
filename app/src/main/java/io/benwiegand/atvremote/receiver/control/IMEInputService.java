@@ -104,6 +104,11 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         super.onUnbindInput();
     }
 
+    @Override
+    public boolean onShowInputRequested(int flags, boolean configChange) {
+        return true;
+    }
+
     private Optional<InputConnection> getOptionalInputConnection() {
         InputConnection inputConnection = getCurrentInputConnection();
         if (inputConnection == null) Log.e(TAG, "IME not connected");
@@ -198,7 +203,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-        // todo: for some reason this isn't called after the keyboard is dismissed for the first time
         View inputView = view;
         if (inputView == null) return super.onKeyDown(keyCode, event);
 
@@ -255,9 +259,15 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     }
 
     @Override
+    public void onStartInputView(EditorInfo editorInfo, boolean restarting) {
+        super.onStartInputView(editorInfo, restarting);
+
+        if (view != null) view.requestFocus();
+    }
+
+    @Override
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
-        view = null;
     }
 
     /**
