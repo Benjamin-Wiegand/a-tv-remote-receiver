@@ -65,11 +65,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     private View view = null;
 
-    /**
-     * this is currently ignored on api <30 unless I figure out a secure settings workaround
-     */
-    private boolean switchToSoftKeyboardOnOpen = true;
-
     @Override
     public void onCreate() {
         Log.d(TAG, "onCreate()");
@@ -235,12 +230,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     @Override
     public View onCreateInputView() {
-        if (switchToSoftKeyboardOnOpen && canSwitchInputMethodBack()) {
-            // the accessibility service will be able to switch back to this input method when it's needed again
-            switchToSoftKeyboard();
-            return null;
-        }
-
         // show a menu that offers to send you back
         view = getLayoutInflater().inflate(R.layout.layout_ime_input_view, null);
         view.findViewById(R.id.revert_soft_keyboard_button).setOnClickListener(v -> switchToSoftKeyboard());
@@ -329,7 +318,7 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     public class KeyboardInputHandler implements KeyboardInput {
         @Override
         public void setSoftKeyboardEnabled(boolean enabled) {
-            switchToSoftKeyboardOnOpen = enabled;
+            // todo: remove this
         }
 
         @Override
