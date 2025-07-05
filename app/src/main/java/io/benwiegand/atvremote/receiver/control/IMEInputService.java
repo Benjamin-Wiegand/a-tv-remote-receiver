@@ -38,6 +38,7 @@ import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallbac
 
 public class IMEInputService extends InputMethodService implements MakeshiftBindCallback {
     private static final String TAG = IMEInputService.class.getSimpleName();
+    private static final boolean DEBUG_LOGS = true;
 
     private static final int KEY_EVENT_SOURCE = InputDevice.SOURCE_DPAD | InputDevice.SOURCE_KEYBOARD;
     private static final int KEY_EVENT_DEVICE_ID = KeyCharacterMap.VIRTUAL_KEYBOARD;
@@ -92,8 +93,15 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     @Override
     public void onBindInput() {
-        Log.v(TAG, "input service ready to input");
+        EditorInfo editorInfo = getCurrentInputEditorInfo();
+        Log.v(TAG, "input bound: " + (editorInfo != null ? editorInfo.packageName : "null?"));
         super.onBindInput();
+    }
+
+    @Override
+    public void onUnbindInput() {
+        Log.v(TAG, "input unbound");
+        super.onUnbindInput();
     }
 
     private Optional<InputConnection> getOptionalInputConnection() {
@@ -108,7 +116,11 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     }
 
     public boolean simulateKeystroke(KeyEventType type, int keyCode) {
-        Log.v(TAG, "simulating keystroke: " + type + " " + keyCode);
+        if (DEBUG_LOGS) {
+            EditorInfo ei = getCurrentInputEditorInfo();
+            Log.v(TAG, "simulating keystroke: " + type + " " + keyCode + (ei == null ? "" : " " + ei.packageName));
+        }
+
         return getOptionalInputConnection().map(inputConnection -> {
             long eventTime = SystemClock.uptimeMillis();
 
