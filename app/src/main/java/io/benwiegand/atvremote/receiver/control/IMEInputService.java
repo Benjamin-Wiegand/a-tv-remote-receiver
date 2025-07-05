@@ -207,7 +207,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         if (inputView == null) return super.onKeyDown(keyCode, event);
 
         View button = view.findViewById(R.id.revert_soft_keyboard_button);
-        button.setVisibility(View.VISIBLE);
 
         switch (keyCode) {
             case KeyEvent.KEYCODE_DPAD_DOWN,
@@ -228,15 +227,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
                  KeyEvent.KEYCODE_NUMPAD_ENTER -> {
 
                 if (button.hasFocus() && button.performClick()) return true;
-            }
-
-            case KeyEvent.KEYCODE_BACK,
-                 KeyEvent.KEYCODE_ESCAPE -> {
-
-                if (button.hasFocus()) {
-                    button.clearFocus();
-                    return true;
-                }
             }
         }
 
@@ -268,16 +258,6 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
     @Override
     public void onFinishInputView(boolean finishingInput) {
         super.onFinishInputView(finishingInput);
-    }
-
-    /**
-     * determines if the input method can be switched back to this one without user confirmation if
-     * switched away. avoid automatically switching away if this returns false.
-     * currently the only criteria for this is api 30 or later.
-     * @return true if the input method can be switched back as described
-     */
-    private boolean canSwitchInputMethodBack() {
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.R;
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {

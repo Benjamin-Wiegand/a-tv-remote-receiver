@@ -54,8 +54,6 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
             android:maxWidth="420dp"
-            android:visibility="gone"
-            tools:visibility="visible"
             android:text="@string/ime_input_view_revert_soft_keyboard_button"
             />
 
