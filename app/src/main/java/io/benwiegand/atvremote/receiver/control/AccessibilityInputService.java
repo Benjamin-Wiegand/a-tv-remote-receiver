@@ -482,8 +482,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     private boolean isSoftKeyboardUsable() {
-        // soft keyboard must be open, not null, and not the one from this app
-        return softKeyboardOpen && softKeyboardWindow != null && imeKeyboardInput == null;
+        return softKeyboardOpen && softKeyboardWindow != null;
     }
 
     private boolean isFakeFocusActive() {
