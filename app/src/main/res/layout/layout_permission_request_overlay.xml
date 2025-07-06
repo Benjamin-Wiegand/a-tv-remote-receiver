@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:background="@color/overlay_background"
+    android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
+    >
+
+    <ScrollView
+        android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:background="?android:attr/windowBackground"
+        >
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:gravity="center_vertical"
+            android:padding="24dp"
+            >
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="12dp"
+                >
+
+                <TextView
+                    android:id="@+id/title_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionTitle"
+                    android:maxWidth="420dp"
+                    tools:text="some permission"
+                    />
+
+                <TextView
+                    android:id="@+id/subtitle_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionSubtitle"
+                    android:maxWidth="420dp"
+                    tools:text="@string/permission_request_subtitle_generic"
+                    />
+
+                <TextView
+                    android:id="@+id/feature_list_text"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionBody"
+                    android:maxWidth="420dp"
+                    android:lineSpacingMultiplier="1.4"
+                    tools:text="- some feature\n- some other feature\n- another feature" />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_margin="12dp"
+                >
+
+                <TextView
+                    android:id="@+id/instructions_header_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionSubtitle"
+                    tools:text="@string/permission_request_instructions_header_settings_location"
+                    />
+
+                <TextView
+                    android:id="@+id/instructions_details_text"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:textAppearance="@style/TextAppearance.Leanback.DetailsDescriptionBody"
+                    android:maxWidth="420dp"
+                    tools:text="Settings > Device Preferences > Some Permission"
+                    />
+
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:layout_marginTop="12dp"
+                >
+
+                <Button
+                    android:id="@+id/grant_button"
+                    style="@style/Widget.Leanback.DetailsActionButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:visibility="gone"
+                    tools:visibility="visible"
+                    tools:text="take me there!"
+                    />
+
+                <Button
+                    android:id="@+id/cancel_button"
+                    style="@style/Widget.Leanback.DetailsActionButtonStyle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/button_cancel"
+                    />
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </ScrollView>
+
+</FrameLayout>

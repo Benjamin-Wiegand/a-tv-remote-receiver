@@ -59,9 +59,13 @@ public class ControlSourceConnectionManager {
     private MediaInput imeMediaInput = null;
     private VolumeInput imeVolumeInput = null;
 
+    private final ApplicationOverlayOutputHandler applicationOverlayOutput;
+
     public ControlSourceConnectionManager(Context context, Consumer<IBinder> onBind) {
         this.context = context;
         this.onBind = onBind;
+
+        applicationOverlayOutput = new ApplicationOverlayOutputHandler(context);
 
         // todo: replace these exception messages when the ui is finished
         controlScheme = new ControlScheme(
@@ -112,7 +116,8 @@ public class ControlSourceConnectionManager {
                     }
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
-                () -> lockForControls(() -> accessibilityOverlayOutput, R.string.control_source_not_loaded_accessibility)
+                () -> lockForControls(() -> accessibilityOverlayOutput, R.string.control_source_not_loaded_accessibility),
+                () -> applicationOverlayOutput
         );
 
         // "bind" accessibility service
@@ -132,6 +137,7 @@ public class ControlSourceConnectionManager {
 
         accessibilityInputServiceConnection.destroy();
         imeInputServiceConnection.destroy();
+        applicationOverlayOutput.destroy();
 
         context.unbindService(notificationInputServiceConnection);
     }

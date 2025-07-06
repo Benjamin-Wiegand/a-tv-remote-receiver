@@ -12,6 +12,7 @@ import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.ScrollInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
+import io.benwiegand.atvremote.receiver.control.output.PermissionRequestOutput;
 
 // breaks up various categories of control into configurable sections
 // ex:
@@ -36,8 +37,9 @@ public class ControlScheme {
 
     // output
     private final ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
+    private final ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier;
 
-    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier) {
+    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier, ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier) {
         this.activityLauncherInputSupplier = activityLauncherInputSupplier;
         this.cursorInputSupplier = cursorInputSupplier;
         this.directionalPadInputSupplier = directionalPadInputSupplier;
@@ -48,6 +50,7 @@ public class ControlScheme {
         this.scrollInputSupplier = scrollInputSupplier;
         this.volumeInputSupplier = volumeInputSupplier;
         this.overlayOutputSupplier = overlayOutputSupplier;
+        this.permissionRequestOutputSupplier = permissionRequestOutputSupplier;
     }
 
     public ActivityLauncherInput getActivityLauncherInput() throws ControlNotInitializedException {
@@ -93,6 +96,14 @@ public class ControlScheme {
     public Optional<OverlayOutput> getOverlayOutputOptional() {
         try {
             return Optional.ofNullable(overlayOutputSupplier.get());
+        } catch (Throwable t) {
+            return Optional.empty();
+        }
+    }
+
+    public Optional<PermissionRequestOutput> getPermissionRequestOutputOptional() {
+        try {
+            return Optional.ofNullable(permissionRequestOutputSupplier.get());
         } catch (Throwable t) {
             return Optional.empty();
         }

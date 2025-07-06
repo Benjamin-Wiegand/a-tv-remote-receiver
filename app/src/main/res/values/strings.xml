@@ -82,6 +82,24 @@
         \n
         Open the receiver app on your TV for more information.
     </string>
+
+    <!-- permissions -->
+    <string name="permission_request_subtitle_generic">A TV Remote Receiver needs your permission for:</string>
+    <string name="permission_request_instructions_header_settings_location">This permission can usually be found under:</string>
+
+    <string name="feature_text_input">typing text you\'ve sent to your TV</string>
+    <string name="feature_ime_dpad_assist">improved UI navigation for Android 10 and below</string>
+    <string name="feature_system_wide_media_control">simulating system-wide media keys</string>
+    <string name="feature_fallback_dpad">alternative UI navigation</string>
+    <string name="feature_volume_control_alt">alternative volume control</string>
+
+    <string name="permission_request_title_switch_keyboard">switch keyboard</string>
+    <string name="permission_request_subtitle_switch_keyboard">A TV Remote Keyboard is used for:</string>
+    <string name="permission_request_instructions_header_switch_keyboard">Can\'t switch keyboards automatically on this device:</string>
+    <string name="permission_request_instructions_details_switch_keyboard">When prompted, select "A TV Remote Keyboard".</string>
+    <string name="permission_request_grant_button_switch_keyboard">switch keyboard</string>
+
+    <!-- ime -->
     <string name="ime_input_view_notice">the keyboard is currently set to only take input from the remote app</string>
     <string name="ime_input_view_revert_soft_keyboard_button">switch back to on-screen keyboard</string>
 </resources>

@@ -19,7 +19,6 @@ import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.EditorInfo;
-import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
 
 import androidx.annotation.RequiresApi;
@@ -162,6 +161,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
     // serial advanced on every noted ui update
     // used to detect if ime inputs are doing things
     private final NotifyingSerialInt uiUpdateSerial = new NotifyingSerialInt();
+
+    private ControlScheme controlScheme = null;
 
 
     @SuppressLint("InlinedApi")
@@ -883,8 +884,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
 
         if (!promptIfNeeded) return false;
-        InputMethodManager imm = getSystemService(InputMethodManager.class);
-        imm.showInputMethodPicker();
+        boolean opened = getOptionalControlScheme()
+                .flatMap(ControlScheme::getPermissionRequestOutputOptional)
+                .map(output -> output.showPermissionDialog(IMEInputService.getSwitchRequestSpec(this)))
+                .orElse(false);
+
+        Log.d(TAG, "showPermissionDialog() result for ime switch dialog: " + opened);
         return false;
     }
 
@@ -936,6 +941,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 imeDpadAssistLimiter.release();
             }
         }).orElse(false);
+    }
+
+    private Optional<ControlScheme> getOptionalControlScheme() {
+        return Optional.ofNullable(controlScheme);
     }
 
     public class DirectionalPadInputHandler implements DirectionalPadInput {
@@ -1427,6 +1436,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         public OverlayOutput getOverlayOutput() {
             return overlayOutput;
+        }
+
+        public void onServerBind(ControlScheme controlScheme) {
+            AccessibilityInputService.this.controlScheme = controlScheme;
         }
     }
 

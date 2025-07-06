@@ -30,6 +30,7 @@ import io.benwiegand.atvremote.receiver.async.Sec;
 import io.benwiegand.atvremote.receiver.auth.ssl.CorruptedKeystoreException;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeyUtil;
 import io.benwiegand.atvremote.receiver.auth.ssl.KeystoreManager;
+import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnectionManager;
 import io.benwiegand.atvremote.receiver.control.NotificationInputService;
 import io.benwiegand.atvremote.receiver.protocol.PairingManager;
@@ -95,6 +96,8 @@ public class TVRemoteServer extends Service {
     private void onInputServiceBind(IBinder iBinder) {
         if (iBinder instanceof NotificationInputService.ServiceBinder serviceBinder) {
             serviceBinder.onServerBind(eventStreamManager);
+        } else if (iBinder instanceof AccessibilityInputService.AccessibilityInputHandler serviceBinder) {
+            serviceBinder.onServerBind(controlSourceConnectionManager.getControlScheme());
         }
     }
 

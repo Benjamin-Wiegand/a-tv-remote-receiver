@@ -35,6 +35,8 @@ import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.json.SurroundingTextResponse;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBind;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftBindCallback;
+import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
+import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class IMEInputService extends InputMethodService implements MakeshiftBindCallback {
     private static final String TAG = IMEInputService.class.getSimpleName();
@@ -498,6 +500,26 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
 
     public static boolean isEnabled(Context context) {
         return isEnabled(context, context.getSystemService(InputMethodManager.class));
+    }
+
+    public static PermissionRequestOverlay.PermissionRequestSpec getSwitchRequestSpec(Context context) {
+        return new PermissionRequestOverlay.PermissionRequestSpec(
+                R.string.permission_request_title_switch_keyboard,
+                R.string.permission_request_subtitle_switch_keyboard,
+                new int[] {
+                        R.string.feature_text_input,
+                        R.string.feature_ime_dpad_assist,
+                        R.string.feature_system_wide_media_control,
+                        R.string.feature_fallback_dpad,
+                        R.string.feature_volume_control_alt,
+                },
+                R.string.permission_request_instructions_header_switch_keyboard,
+                R.string.permission_request_instructions_details_switch_keyboard,
+                new UiUtil.ButtonPreset(R.string.permission_request_grant_button_switch_keyboard, v -> {
+                    InputMethodManager imm = context.getSystemService(InputMethodManager.class);
+                    imm.showInputMethodPicker();
+                }),
+                () -> {});
     }
 
 }

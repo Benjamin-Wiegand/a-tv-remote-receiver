@@ -8,6 +8,9 @@ import android.content.Context;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+
+import androidx.annotation.StringRes;
 
 public class UiUtil {
     public static final TimeInterpolator EASE_OUT = t -> 1-(t-1f)*(t-1f);
@@ -22,6 +25,32 @@ public class UiUtil {
             tf = x -> func.getInterpolation(prevTf.getInterpolation(x));
         }
         return tf;
+    }
+
+    public record ButtonPreset(
+            @StringRes int text,
+            View.OnClickListener clickListener
+    ) {
+
+        public ButtonPreset wrapAction(Runnable after) {
+            return new ButtonPreset(text(), v -> {
+                if (clickListener() != null)
+                    clickListener().onClick(v);
+                after.run();
+            });
+        }
+
+    }
+
+    public static void inflateButtonPreset(Button button, ButtonPreset preset) {
+        if (preset == null) {
+            button.setVisibility(View.GONE);
+            return;
+        }
+
+        button.setText(preset.text());
+        button.setOnClickListener(preset.clickListener());
+        button.setVisibility(View.VISIBLE);
     }
 
     public static ValueAnimator.AnimatorUpdateListener crtAnimation(View view, int scanLineHeight) {
