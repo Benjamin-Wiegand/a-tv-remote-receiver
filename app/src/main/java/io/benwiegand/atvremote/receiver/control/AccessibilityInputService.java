@@ -134,8 +134,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
     // ime keyboard - automatically switch for api >=30
     private final MakeshiftServiceConnection imeInputServiceConnection = new IMEInputServiceConnection();
     private final Object imeInputLock = new Object();
+    private IMEInputService.ServiceBinder imeBinder = null;
     private DirectionalPadInput imeDirectionalPadInput = null;
     private KeyboardInput imeKeyboardInput = null;
+
+    private boolean allowPromptForImeDpadAssist = true;
 
     private boolean softKeyboardOpen = false;
     private AccessibilityWindowInfo softKeyboardWindow = null;
@@ -893,26 +896,40 @@ public class AccessibilityInputService extends AccessibilityService implements M
         return false;
     }
 
+    private boolean waitForImeLocked() {
+        if (imeBinder != null) return true;
+        try {
+            imeInputLock.wait(IME_SERVICE_WAIT_TIMEOUT);
+        } catch (InterruptedException ignored) {}
+        return imeBinder != null;
+    }
+
     private Optional<DirectionalPadInput> getImeDpad() {
         synchronized (imeInputLock) {
-            if (imeDirectionalPadInput != null) return Optional.of(imeDirectionalPadInput);
-            if (!switchToIme(false)) return Optional.empty();
-            try {
-                imeInputLock.wait(IME_SERVICE_WAIT_TIMEOUT);
-            } catch (InterruptedException ignored) {}
+            if (imeBinder == null && !(switchToIme(allowPromptForImeDpadAssist) && waitForImeLocked())) {
+                allowPromptForImeDpadAssist = false;    // only show it once, otherwise navigation is impossible
+                return Optional.empty();
+            }
 
-            return Optional.ofNullable(imeDirectionalPadInput);
+            allowPromptForImeDpadAssist = true; // reset
+
+            assert imeDirectionalPadInput != null;
+            if (imeBinder.isConnected()) return Optional.of(imeDirectionalPadInput);
+
+            Log.e(TAG, "ime input not ready");
+            return Optional.empty();
         }
     }
 
     private Optional<KeyboardInput> getImeKeyboard() {
         synchronized (imeInputLock) {
-            if (imeKeyboardInput != null) return Optional.of(imeKeyboardInput);
-            if (!switchToIme(true)) return Optional.empty();
-            try {
-                imeInputLock.wait(IME_SERVICE_WAIT_TIMEOUT);
-            } catch (InterruptedException ignored) {}
+            if (imeBinder == null && !(switchToIme(true) && waitForImeLocked()))
+                return Optional.empty();
 
+            assert imeKeyboardInput != null;
+            if (imeBinder.isConnected()) return Optional.of(imeKeyboardInput);
+
+            Log.e(TAG, "ime input not ready");
             return Optional.ofNullable(imeKeyboardInput);
         }
     }
@@ -1343,10 +1360,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
             Log.v(TAG, "IMEInputService service connected");
-            IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
             synchronized (imeInputLock) {
-                imeDirectionalPadInput = binder.getDirectionalPadInput();
-                imeKeyboardInput = binder.getKeyboardInput();
+                imeBinder = (IMEInputService.ServiceBinder) service;
+                imeDirectionalPadInput = imeBinder.getDirectionalPadInput();
+                imeKeyboardInput = imeBinder.getKeyboardInput();
 
                 imeInputLock.notifyAll();
             }
@@ -1356,6 +1373,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
         public void onServiceDisconnected(ComponentName name) {
             Log.v(TAG, "IMEInputService service disconnected");
             synchronized (imeInputLock) {
+                imeBinder = null;
                 imeDirectionalPadInput = null;
                 imeKeyboardInput = null;
             }

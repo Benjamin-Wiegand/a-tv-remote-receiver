@@ -480,6 +480,10 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         public MediaInput getMediaInput() {
             return mediaInput;
         }
+
+        public boolean isConnected() {
+            return getOptionalInputConnection().isPresent();
+        }
     }
 
     public static String getInputMethodId(Context context) {
