@@ -223,7 +223,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
 
         boolean currentlySoftKeyboardOpen = currentSoftKeyboardWindow != null;
-        if (currentlySoftKeyboardOpen == softKeyboardOpen) return;
+        if (currentlySoftKeyboardOpen == softKeyboardOpen) {
+            if (currentSoftKeyboardWindow == softKeyboardWindow) return;
+            Log.v(TAG, "soft keyboard window changed");
+        }
         softKeyboardOpen = currentlySoftKeyboardOpen;
         softKeyboardWindow = currentSoftKeyboardWindow;
 
