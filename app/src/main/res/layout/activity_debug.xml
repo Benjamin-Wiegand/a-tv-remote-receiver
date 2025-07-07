@@ -43,6 +43,12 @@
             android:focusable="true" />
 
         <Button
+            android:id="@+id/application_overlay_settings_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="app overlay settings" />
+
+        <Button
             android:id="@+id/accessibility_settings_button"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"

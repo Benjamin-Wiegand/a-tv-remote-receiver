@@ -79,6 +79,10 @@ public class DebugActivity extends AppCompatActivity {
             bindService(sintent, debugServiceConnection, 0);
         });
 
+        findViewById(R.id.application_overlay_settings_button).setOnClickListener(v -> tryActivityIntents(
+                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+        ));
+
         findViewById(R.id.accessibility_settings_button).setOnClickListener(v -> tryActivityIntents(
                 new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         ));
