@@ -104,7 +104,7 @@ public class ControlSourceConnectionManager {
                         showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
                         throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                     } else {
-                        showRationale(IMEInputService.getEnableRequestSpec(context));
+                        showRationale(IMEInputService.getPermissionRequestSpec(context));
                         throw new ControlNotInitializedException(getImeServiceExceptionText());
                     }
                 },
@@ -114,7 +114,7 @@ public class ControlSourceConnectionManager {
                         if (notificationListenerMediaInput != null) return notificationListenerMediaInput;
                     }
 
-                    showRationale(IMEInputService.getEnableRequestSpec(context));
+                    showRationale(IMEInputService.getPermissionRequestSpec(context));
                     throw new ControlNotInitializedException(getImeServiceExceptionText());
                 },
                 () -> {
