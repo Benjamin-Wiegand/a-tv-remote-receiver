@@ -2,9 +2,9 @@ package io.benwiegand.atvremote.receiver.ui;
 
 
 import android.annotation.SuppressLint;
-import android.content.ActivityNotFoundException;
 import android.content.ComponentName;
 import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -81,7 +81,7 @@ public class DebugActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.application_overlay_settings_button).setOnClickListener(v -> tryActivityIntents(
-                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION).setData(Uri.parse("package:" + getPackageName())),
                 new Intent(Settings.ACTION_APPLICATION_SETTINGS)
         ));
 
