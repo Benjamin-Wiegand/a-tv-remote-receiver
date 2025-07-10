@@ -1396,7 +1396,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                 }
             };
 
-            pd.set(new PairingDialog(AccessibilityInputService.this, cb, 696969, "deez nuts".getBytes(StandardCharsets.UTF_8)));
+            pd.set(new PairingDialog(getApplicationContext(), cb, 696969, "deez nuts".getBytes(StandardCharsets.UTF_8)));
             pd.get().start();
         }
 
