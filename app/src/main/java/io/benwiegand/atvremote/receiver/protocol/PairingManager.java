@@ -182,7 +182,7 @@ public class PairingManager implements PairingCallback {
 
         if (fingerprint == null) throw new IllegalStateException("fingerprint should be set for a pairing process to initiate");
 
-        PairingDialog dialog = controlScheme.getOverlayOutput().createPairingDialog(this, code, fingerprint);
+        PairingDialog dialog = controlScheme.getPairingOverlayOutput().createPairingDialog(this, code, fingerprint);
         dialog.start();
 
         return new PairingSession(dialog, new LinkedList<>(), code, fingerprint);

@@ -1334,11 +1334,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     public class OverlayOutputHandler implements OverlayOutput {
         @Override
-        public PairingDialog createPairingDialog(PairingCallback callback, int pairingCode, byte[] fingerprint) {
-            return new PairingDialog(AccessibilityInputService.this, callback, pairingCode, fingerprint);
-        }
-
-        @Override
         public void displayNotification(String title, String description, int icon) {
             notificationOverlay.displayNotification(title, description, icon);
         }

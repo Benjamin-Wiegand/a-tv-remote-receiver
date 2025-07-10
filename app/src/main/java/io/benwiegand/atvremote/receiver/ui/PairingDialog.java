@@ -22,7 +22,9 @@ public class PairingDialog extends MakeshiftActivity {
     @SuppressLint("InflateParams")
     public PairingDialog(Context context, PairingCallback callback, int pairingCode, byte[] fingerprint) {
         // todo: use system overlay if system app
-        super(context, R.layout.layout_pairing, new WindowManager.LayoutParams(WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY, 0, PixelFormat.TRANSLUCENT));
+        super(context, R.layout.layout_pairing, new WindowManager.LayoutParams(WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY, 0, PixelFormat.TRANSLUCENT));
+
+        assert context.getApplicationContext() == context; // application overlay needs application context
 
         this.pairingCode = pairingCode;
         this.fingerprint = fingerprint;

@@ -117,6 +117,7 @@ public class ControlSourceConnectionManager {
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
                 () -> lockForControls(() -> accessibilityOverlayOutput, R.string.control_source_not_loaded_accessibility),
+                () -> applicationOverlayOutput,
                 () -> applicationOverlayOutput
         );
 
