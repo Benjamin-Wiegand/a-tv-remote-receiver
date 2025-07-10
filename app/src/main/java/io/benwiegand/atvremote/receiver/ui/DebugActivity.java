@@ -36,6 +36,7 @@ import io.benwiegand.atvremote.receiver.network.TVRemoteConnection;
 import io.benwiegand.atvremote.receiver.network.TVRemoteServer;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class DebugActivity extends AppCompatActivity {
     private static final String TAG = DebugActivity.class.getSimpleName();
@@ -80,7 +81,8 @@ public class DebugActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.application_overlay_settings_button).setOnClickListener(v -> tryActivityIntents(
-                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION)
+                new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+                new Intent(Settings.ACTION_APPLICATION_SETTINGS)
         ));
 
         findViewById(R.id.accessibility_settings_button).setOnClickListener(v -> tryActivityIntents(
@@ -194,17 +196,8 @@ public class DebugActivity extends AppCompatActivity {
     }
 
     private void tryActivityIntents(Intent... intents) {
-        for (Intent intent : intents) {
-            try {
-                startActivity(intent);
-                return;
-            } catch (ActivityNotFoundException e) {
-                Log.e(TAG, "can't find activity for intent: " + intent, e);
-            }
-        }
-
-        Log.e(TAG, "none of the provided intents were successful");
-        Toast.makeText(this, "no suitable activity found", Toast.LENGTH_SHORT).show();
+        if (!UiUtil.tryActivityIntents(this, intents))
+            Toast.makeText(this, "no suitable activity found", Toast.LENGTH_SHORT).show();
     }
 
     @Override

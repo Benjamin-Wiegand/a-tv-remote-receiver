@@ -10,6 +10,7 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.os.SystemClock;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.KeyCharacterMap;
@@ -20,7 +21,9 @@ import android.view.inputmethod.InputConnection;
 import android.view.inputmethod.InputMethodInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.view.inputmethod.SurroundingText;
+import android.widget.Toast;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -506,17 +509,50 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
         return isEnabled(context, context.getSystemService(InputMethodManager.class));
     }
 
+    private static final int[] FEATURE_STRINGS;
+
+    static {
+        ArrayList<Integer> featureStrings = new ArrayList<>(6);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            featureStrings.add(R.string.feature_text_input_alt);
+        } else {
+            featureStrings.add(R.string.feature_text_input);
+            featureStrings.add(R.string.feature_ime_dpad_assist);
+        }
+
+        featureStrings.add(R.string.feature_dpad_alt);
+        featureStrings.add(R.string.feature_system_wide_media_control);
+        featureStrings.add(R.string.feature_volume_control_alt);
+
+        FEATURE_STRINGS = new int[featureStrings.size()];
+        for (int i = 0; i < featureStrings.size(); i++) {
+            FEATURE_STRINGS[i] = featureStrings.get(i);
+        }
+    }
+
+    public static PermissionRequestOverlay.PermissionRequestSpec getEnableRequestSpec(Context context) {
+        return new PermissionRequestOverlay.PermissionRequestSpec(
+                R.string.permission_request_title_enable_keyboard,
+                R.string.permission_request_subtitle_keyboard,
+                FEATURE_STRINGS,
+                R.string.permission_request_instructions_header_settings_location,
+                R.string.permission_request_instructions_details_enable_keyboard,
+                new UiUtil.ButtonPreset(R.string.permission_request_grant_button_settings, v -> {
+                    boolean opened = UiUtil.tryActivityIntents(context,
+                            new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    if (opened) return;
+                    Toast.makeText(context, R.string.permission_request_instructions_settings_not_found_error, Toast.LENGTH_LONG).show();
+                }),
+                () -> {});
+    }
+
     public static PermissionRequestOverlay.PermissionRequestSpec getSwitchRequestSpec(Context context) {
         return new PermissionRequestOverlay.PermissionRequestSpec(
                 R.string.permission_request_title_switch_keyboard,
-                R.string.permission_request_subtitle_switch_keyboard,
-                new int[] {
-                        R.string.feature_text_input,
-                        R.string.feature_ime_dpad_assist,
-                        R.string.feature_system_wide_media_control,
-                        R.string.feature_fallback_dpad,
-                        R.string.feature_volume_control_alt,
-                },
+                R.string.permission_request_subtitle_keyboard,
+                FEATURE_STRINGS,
                 R.string.permission_request_instructions_header_switch_keyboard,
                 R.string.permission_request_instructions_details_switch_keyboard,
                 new UiUtil.ButtonPreset(R.string.permission_request_grant_button_switch_keyboard, v -> {
@@ -524,6 +560,10 @@ public class IMEInputService extends InputMethodService implements MakeshiftBind
                     imm.showInputMethodPicker();
                 }),
                 () -> {});
+    }
+
+    public static PermissionRequestOverlay.PermissionRequestSpec getPermissionRequestSpec(Context context) {
+        return isEnabled(context) ? getSwitchRequestSpec(context) : getEnableRequestSpec(context);
     }
 
 }

@@ -4,7 +4,10 @@ import static android.util.TypedValue.COMPLEX_UNIT_DIP;
 
 import android.animation.TimeInterpolator;
 import android.animation.ValueAnimator;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
+import android.content.Intent;
+import android.util.Log;
 import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,6 +16,8 @@ import android.widget.Button;
 import androidx.annotation.StringRes;
 
 public class UiUtil {
+    private static final String TAG = UiUtil.class.getSimpleName();
+
     public static final TimeInterpolator EASE_OUT = t -> 1-(t-1f)*(t-1f);
     public static final TimeInterpolator EASE_IN = t -> t*t;
     public static final TimeInterpolator EASE_IN_OUT = chainTimeFunctions(EASE_IN, EASE_OUT);
@@ -90,6 +95,20 @@ public class UiUtil {
 
     public static float dpToPx(Context context, float dp) {
         return TypedValue.applyDimension(COMPLEX_UNIT_DIP, dp, context.getResources().getDisplayMetrics());
+    }
+
+    public static boolean tryActivityIntents(Context context, Intent... intents) {
+        for (Intent intent : intents) {
+            try {
+                context.startActivity(intent);
+                return true;
+            } catch (ActivityNotFoundException e) {
+                Log.e(TAG, "can't find activity for intent: " + intent, e);
+            }
+        }
+
+        Log.e(TAG, "none of the provided intents were successful");
+        return false;
     }
 
 }

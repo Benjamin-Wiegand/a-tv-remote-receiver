@@ -8,10 +8,7 @@ import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 
-import androidx.annotation.StringRes;
-
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
@@ -24,6 +21,7 @@ import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
 
 public class ControlSourceConnectionManager {
     private static final String TAG = ControlSourceConnectionManager.class.getSimpleName();
@@ -69,8 +67,20 @@ public class ControlSourceConnectionManager {
 
         // todo: replace these exception messages when the ui is finished
         controlScheme = new ControlScheme(
-                () -> lockForControls(() -> accessibilityActivityLauncherInput, R.string.control_source_not_loaded_accessibility),
-                () -> lockForControls(() -> accessibilityFakeCursorInput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityActivityLauncherInput != null) return accessibilityActivityLauncherInput;
+                    }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityFakeCursorInput != null) return accessibilityFakeCursorInput;
+                    }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
                 () -> {
                     synchronized (inputLock) {
                         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
@@ -82,6 +92,7 @@ public class ControlSourceConnectionManager {
                         }
                         if (imeDirectionalPadInput != null) return imeDirectionalPadInput;
                     }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
                 () -> {
@@ -89,21 +100,36 @@ public class ControlSourceConnectionManager {
                         if (imeKeyboardInput != null) return imeKeyboardInput;
                         if (accessibilityKeyboardInput != null) return accessibilityKeyboardInput;
                     }
-                    throw new ControlNotInitializedException(getImeServiceExceptionText());
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                        showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
+                        throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                    } else {
+                        showRationale(IMEInputService.getEnableRequestSpec(context));
+                        throw new ControlNotInitializedException(getImeServiceExceptionText());
+                    }
                 },
                 () -> {
                     synchronized (inputLock) {
                         if (imeMediaInput != null) return imeMediaInput;
                         if (notificationListenerMediaInput != null) return notificationListenerMediaInput;
                     }
+
+                    showRationale(IMEInputService.getEnableRequestSpec(context));
                     throw new ControlNotInitializedException(getImeServiceExceptionText());
                 },
-                () -> lockForControls(() -> accessibilityFullNavigationInput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityFullNavigationInput != null) return accessibilityFullNavigationInput;
+                    }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
                 () -> {
                     synchronized (inputLock) {
                         if (accessibilityFullNavigationInput != null) return accessibilityFullNavigationInput;
                         if (imeBackNavigationInput != null) return imeBackNavigationInput;
                     }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
                 () -> {
@@ -114,9 +140,16 @@ public class ControlSourceConnectionManager {
                         if (accessibilityVolumeInput != null) return accessibilityVolumeInput;
                         if (imeVolumeInput != null) return imeVolumeInput;
                     }
+                    showRationale(AccessibilityInputService.getPermissionRequestSpec(context));
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
-                () -> lockForControls(() -> accessibilityOverlayOutput, R.string.control_source_not_loaded_accessibility),
+                () -> {
+                    synchronized (inputLock) {
+                        if (accessibilityOverlayOutput != null) return accessibilityOverlayOutput;
+                    }
+                    // don't show a rationale for every notification that would be annoying
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
+                },
                 () -> {
                     if (!applicationOverlayOutput.checkPermission())
                         throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_application_overlay));
@@ -155,14 +188,10 @@ public class ControlSourceConnectionManager {
         return controlScheme;
     }
 
-    private <T extends ControlHandler> T lockForControls(Supplier<T> supplier, @StringRes int exceptionMessage) {
-        T controlHandler;
-        synchronized (inputLock) {
-            controlHandler = supplier.get();
-        }
-        if (controlHandler == null)
-            throw new ControlNotInitializedException(context.getString(exceptionMessage));
-        return controlHandler;
+    private boolean showRationale(PermissionRequestOverlay.PermissionRequestSpec spec) {
+        return getControlScheme().getPermissionRequestOutputOptional()
+                .map(output -> output.showPermissionDialog(spec))
+                .orElse(false);
     }
 
     private String getImeServiceExceptionText() {

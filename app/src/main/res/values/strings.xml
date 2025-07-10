@@ -94,18 +94,34 @@
     <!-- permissions -->
     <string name="permission_request_subtitle_generic">A TV Remote Receiver needs your permission for:</string>
     <string name="permission_request_instructions_header_settings_location">This permission can usually be found under:</string>
+    <string name="permission_request_grant_button_settings">take me there</string>
+    <string name="permission_request_instructions_settings_not_found_error">please manually grant the permission</string>
 
-    <string name="feature_text_input">typing text you\'ve sent to your TV</string>
-    <string name="feature_ime_dpad_assist">improved UI navigation for Android 10 and below</string>
-    <string name="feature_system_wide_media_control">simulating system-wide media keys</string>
-    <string name="feature_fallback_dpad">alternative UI navigation</string>
-    <string name="feature_volume_control_alt">alternative volume control</string>
+    <string name="feature_text_input">typing text you\'ve sent to your TV</string> <!-- accessibility >=33 / ime <33 -->
+    <string name="feature_text_input_alt">alternative text input</string> <!-- ime >= 33 -->
 
+    <string name="feature_dpad">UI navigation</string> <!-- accessibility >= 33 -->
+    <string name="feature_dpad_alt">alternative UI navigation</string> <!-- ime -->
+    <string name="feature_fake_dpad">UI navigation (fake dpad)</string> <!-- accessibility <33 -->
+    <string name="feature_ime_dpad_assist">improved UI navigation for some TVs</string> <!-- accessibility & ime < 33 -->
+    <string name="feature_switch_keyboard">automatic keyboard switching</string> <!-- accessibility >=30 -->
+    <string name="feature_system_wide_media_control">simulating system-wide media keys</string> <!-- ime -->
+    <string name="feature_volume_control">volume control</string> <!-- accessibility -->
+    <string name="feature_volume_control_alt">alternative volume control</string> <!-- ime -->
+    <string name="feature_fake_mouse">mouse control</string> <!-- accessibility -->
+
+    <string name="permission_request_title_enable_keyboard">enable keyboard</string>
     <string name="permission_request_title_switch_keyboard">switch keyboard</string>
-    <string name="permission_request_subtitle_switch_keyboard">A TV Remote Keyboard is used for:</string>
+    <string name="permission_request_subtitle_keyboard">A TV Remote Keyboard is used for:</string>
+    <string name="permission_request_instructions_details_enable_keyboard">Settings > Device Preferences > Keyboard > Manage Keyboards</string>
     <string name="permission_request_instructions_header_switch_keyboard">Can\'t switch keyboards automatically on this device:</string>
     <string name="permission_request_instructions_details_switch_keyboard">When prompted, select "A TV Remote Keyboard".</string>
     <string name="permission_request_grant_button_switch_keyboard">switch keyboard</string>
+
+    <string name="permission_request_title_accessibility_service">enable accessibility service</string>
+    <string name="permission_request_subtitle_accessibility_service">A TV Remote Receiver uses the \"A TV Remote Inputs\" accessibility service for:</string>
+    <string name="permission_request_instructions_details_accessibility_service">Settings > Device Preferences > Accessibility</string>
+
 
     <!-- ime -->
     <string name="ime_input_view_notice">the keyboard is currently set to only take input from the remote app</string>

@@ -6,12 +6,14 @@ import android.accessibilityservice.AccessibilityService;
 import android.accessibilityservice.InputMethod;
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
 import android.view.View;
@@ -20,10 +22,12 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import android.view.accessibility.AccessibilityWindowInfo;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.SurroundingText;
+import android.widget.Toast;
 
 import androidx.annotation.RequiresApi;
 
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
@@ -57,6 +61,8 @@ import io.benwiegand.atvremote.receiver.ui.DebugOverlay;
 import io.benwiegand.atvremote.receiver.ui.FakeFocusOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
+import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
+import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class AccessibilityInputService extends AccessibilityService implements MakeshiftBindCallback {
     private static final String TAG = AccessibilityInputService.class.getSimpleName();
@@ -877,14 +883,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             boolean switchResult = getSoftKeyboardController().switchToInputMethod(imeId);
             if (switchResult) return true;
-
             if (!IMEInputService.isEnabled(this)) {
-                // todo: ask user to enable input method
-                Log.e(TAG, "input method not enabled");
-                return false;
+                Log.e(TAG, "switch failed: input method not enabled");
+            } else {
+                Log.wtf(TAG, "input method is enabled, but the switch still failed");
             }
 
-            Log.wtf(TAG, "input method is enabled, but the switch failed");
         } else {
             Log.d(TAG, "input method not selected");
         }
@@ -892,10 +896,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
         if (!promptIfNeeded) return false;
         boolean opened = getOptionalControlScheme()
                 .flatMap(ControlScheme::getPermissionRequestOutputOptional)
-                .map(output -> output.showPermissionDialog(IMEInputService.getSwitchRequestSpec(this)))
+                .map(output -> output.showPermissionDialog(IMEInputService.getPermissionRequestSpec(this)))
                 .orElse(false);
 
-        Log.d(TAG, "showPermissionDialog() result for ime switch dialog: " + opened);
+        Log.d(TAG, "showPermissionDialog() result for ime permission dialog: " + opened);
         return false;
     }
 
@@ -910,6 +914,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private Optional<DirectionalPadInput> getImeDpad() {
         synchronized (imeInputLock) {
             if (imeBinder == null && !(switchToIme(allowPromptForImeDpadAssist) && waitForImeLocked())) {
+                // todo: show it again for switching to the input after enabling on api <30
                 allowPromptForImeDpadAssist = false;    // only show it once, otherwise navigation is impossible
                 return Optional.empty();
             }
@@ -1482,5 +1487,48 @@ public class AccessibilityInputService extends AccessibilityService implements M
             };
         }
 
+    }
+
+    private static final int[] FEATURE_STRINGS;
+
+    static {
+        ArrayList<Integer> featureStrings = new ArrayList<>(6);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            featureStrings.add(R.string.feature_dpad);
+            featureStrings.add(R.string.feature_text_input);
+        } else {
+            featureStrings.add(R.string.feature_fake_dpad);
+            featureStrings.add(R.string.feature_ime_dpad_assist);
+        }
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            featureStrings.add(R.string.feature_switch_keyboard);
+        }
+
+        featureStrings.add(R.string.feature_volume_control);
+        featureStrings.add(R.string.feature_fake_mouse);
+
+        FEATURE_STRINGS = new int[featureStrings.size()];
+        for (int i = 0; i < featureStrings.size(); i++) {
+            FEATURE_STRINGS[i] = featureStrings.get(i);
+        }
+    }
+
+    public static PermissionRequestOverlay.PermissionRequestSpec getPermissionRequestSpec(Context context) {
+        return new PermissionRequestOverlay.PermissionRequestSpec(
+                R.string.permission_request_title_accessibility_service,
+                R.string.permission_request_subtitle_accessibility_service,
+                FEATURE_STRINGS,
+                R.string.permission_request_instructions_header_settings_location,
+                R.string.permission_request_instructions_details_accessibility_service,
+                new UiUtil.ButtonPreset(R.string.permission_request_grant_button_settings, v -> {
+                    boolean opened = UiUtil.tryActivityIntents(context,
+                            new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+                    if (opened) return;
+                    Toast.makeText(context, R.string.permission_request_instructions_settings_not_found_error, Toast.LENGTH_LONG).show();
+                }),
+                () -> {});
     }
 }
