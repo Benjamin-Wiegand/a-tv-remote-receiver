@@ -3,6 +3,7 @@ package io.benwiegand.atvremote.receiver.ui;
 import android.content.Context;
 import android.os.Handler;
 import android.os.Looper;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowManager;
@@ -10,6 +11,7 @@ import android.view.WindowManager;
 import androidx.annotation.LayoutRes;
 
 public abstract class MakeshiftActivity {
+    private static final String TAG = MakeshiftActivity.class.getSimpleName();
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Context context;
@@ -32,23 +34,31 @@ public abstract class MakeshiftActivity {
     }
 
     public void start() {
-        runOnUiThread(this::show);
+        show();
     }
 
     public void destroy() {
-        runOnUiThread(this::hide);
+        hide();
     }
 
     public void show() {
-        if (showing) return;
-        wm.addView(root, layoutParams);
-        showing = true;
+        runOnUiThread(() -> {
+            if (showing) return;
+            try {
+                wm.addView(root, layoutParams);
+                showing = true;
+            } catch (Throwable t) {
+                Log.e(TAG, "failed to launch overlay", t);
+            }
+        });
     }
 
     public void hide() {
-        if (!showing) return;
-        wm.removeView(root);
-        showing = false;
+        runOnUiThread(() -> {
+            if (!showing) return;
+            wm.removeView(root);
+            showing = false;
+        });
     }
 
     protected void runOnUiThread(Runnable run) {

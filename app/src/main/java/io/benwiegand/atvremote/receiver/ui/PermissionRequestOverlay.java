@@ -52,8 +52,10 @@ public class PermissionRequestOverlay extends MakeshiftActivity {
 
     @Override
     public void show() {
-        super.show();
-        root.findViewById(R.id.grant_button).requestFocus();
+        runOnUiThread(() -> {
+            super.show();
+            root.findViewById(R.id.grant_button).requestFocus();
+        });
     }
 
     @Override
