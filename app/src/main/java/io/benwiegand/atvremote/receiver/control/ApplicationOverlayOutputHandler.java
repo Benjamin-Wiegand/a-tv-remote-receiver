@@ -1,6 +1,7 @@
 package io.benwiegand.atvremote.receiver.control;
 
 import android.content.Context;
+import android.provider.Settings;
 import android.util.Log;
 
 import io.benwiegand.atvremote.receiver.control.output.PairingOverlayOutput;
@@ -21,6 +22,10 @@ public class ApplicationOverlayOutputHandler implements PermissionRequestOutput,
 
     public ApplicationOverlayOutputHandler(Context context) {
         this.context = context.getApplicationContext();
+    }
+
+    public boolean checkPermission() {
+        return Settings.canDrawOverlays(context);
     }
 
     @Override
