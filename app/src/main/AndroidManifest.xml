@@ -96,7 +96,7 @@
             android:name=".ui.DebugActivity"
             android:exported="true"
             android:banner="@mipmap/ic_leanback"
-            android:icon="@mipmap/ic_leanback"
+            android:icon="@mipmap/ic_launcher"
             >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
