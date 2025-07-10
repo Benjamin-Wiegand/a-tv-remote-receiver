@@ -36,6 +36,14 @@ public class PairingDialog extends MakeshiftActivity {
         });
     }
 
+    @Override
+    public void show() {
+        runOnUiThread(() -> {
+            super.show();
+            root.findViewById(R.id.cancel_button).requestFocus();
+        });
+    }
+
     private void updateText() {
         TextView fingerprintText = root.findViewById(R.id.certificate_fingerprint_text);
         fingerprintText.setText(ByteUtil.hexOf(fingerprint));
