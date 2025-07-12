@@ -36,6 +36,7 @@ dependencies {
     implementation libs.bouncycastle
     implementation libs.androidx.leanback
     implementation libs.gson
+    implementation libs.preference
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core
