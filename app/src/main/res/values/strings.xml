@@ -144,6 +144,7 @@
     <string name="input_method_preferences_media_priority_label">Primary Media Control Input</string>
     <string name="input_method_preferences_full_navigation_priority_label">Full Navigation Input</string>
     <string name="input_method_preferences_back_navigation_priority_label">Back Navigation Input</string>
+    <string name="input_method_preferences_volume_priority_label">Volume Input</string>
     <string name="input_method_preferences_mouse_priority_label">Mouse Input</string>
     <string name="input_method_preferences_activity_launcher_priority_label">Activity Launch Input</string>
 

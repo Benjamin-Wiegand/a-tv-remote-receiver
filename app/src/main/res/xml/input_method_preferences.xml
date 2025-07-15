@@ -71,7 +71,7 @@
 
     <ListPreference
         app:key="@string/input_method_preferences_volume_priority_key"
-        app:title="input_method_preferences_volume_priority_label"
+        app:title="@string/input_method_preferences_volume_priority_label"
         app:entries="@array/input_method_preferences_volume_priority_entries"
         app:entryValues="@array/input_method_preferences_volume_priority_values"
         app:defaultValue="auto"
