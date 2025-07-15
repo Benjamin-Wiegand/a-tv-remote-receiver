@@ -1,7 +1,5 @@
 package io.benwiegand.atvremote.receiver.ui;
 
-
-import android.annotation.SuppressLint;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.net.Uri;
@@ -48,7 +46,6 @@ public class DebugActivity extends AppCompatActivity {
     private TVRemoteServer.ServerBinder serverBinder = null;
     private IMEInputService.ServiceBinder imeBinder = null;
 
-    @SuppressLint({"InlinedApi"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -93,11 +90,17 @@ public class DebugActivity extends AppCompatActivity {
                 new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
         ));
 
-        findViewById(R.id.notification_listener_settings_button).setOnClickListener(v -> tryActivityIntents(
-                new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
-                        .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(this, NotificationInputService.class).flattenToString()),
-                new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
-        ));
+        findViewById(R.id.notification_listener_settings_button).setOnClickListener(v -> {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    tryActivityIntents(
+                            new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                                    .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(this, NotificationInputService.class).flattenToString()),
+                            new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+                    );
+                    return;
+                }
+                tryActivityIntents(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS));
+        });
 
         findViewById(R.id.keyboard_settings_button).setOnClickListener(v -> tryActivityIntents(
                 new Intent(Settings.ACTION_INPUT_METHOD_SETTINGS)
