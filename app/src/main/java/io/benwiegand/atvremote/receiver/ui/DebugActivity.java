@@ -36,7 +36,7 @@ import io.benwiegand.atvremote.receiver.network.TVRemoteConnection;
 import io.benwiegand.atvremote.receiver.network.TVRemoteServer;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
-import io.benwiegand.atvremote.receiver.ui.preference.BasicSettingsActivity;
+import io.benwiegand.atvremote.receiver.ui.preference.InputMethodSettingsActivity;
 import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class DebugActivity extends AppCompatActivity {
@@ -76,7 +76,7 @@ public class DebugActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.input_method_settings_button).setOnClickListener(v ->
-                startActivity(BasicSettingsActivity.getLaunchIntent(this, R.xml.input_method_preferences)));
+                startActivity(InputMethodSettingsActivity.getLaunchIntent(this)));
 
         findViewById(R.id.start_server_button).setOnClickListener(v -> {
             Intent sintent = new Intent(this, TVRemoteServer.class);

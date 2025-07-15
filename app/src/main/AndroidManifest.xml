@@ -112,6 +112,12 @@
             android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
             />
 
+        <activity
+            android:name=".ui.preference.InputMethodSettingsActivity"
+            android:exported="false"
+            android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
+            />
+
         <service
             android:name=".control.AccessibilityInputService"
             android:exported="false"

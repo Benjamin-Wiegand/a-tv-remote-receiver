@@ -25,21 +25,21 @@ import io.benwiegand.atvremote.receiver.control.output.PermissionRequestOutput;
 //  - I do my own android tv 15 builds, it might be nice to also have everything doable as a system app
 public class ControlScheme {
     // input
-    private final ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier;
-    private final ControlHandlerSupplier<CursorInput> cursorInputSupplier;
-    private final ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier;
-    private final ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier;
-    private final ControlHandlerSupplier<MediaInput> mediaInputSupplier;
-    private final ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier;
-    private final ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier;
-    private final ControlHandlerSupplier<ScrollInput> scrollInputSupplier;
-    private final ControlHandlerSupplier<VolumeInput> volumeInputSupplier;
+    private ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier;
+    private ControlHandlerSupplier<CursorInput> cursorInputSupplier;
+    private ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier;
+    private ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier;
+    private ControlHandlerSupplier<MediaInput> mediaInputSupplier;
+    private ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier;
+    private ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier;
+    private ControlHandlerSupplier<ScrollInput> scrollInputSupplier;
+    private ControlHandlerSupplier<VolumeInput> volumeInputSupplier;
     // todo: power (sleep and menu)
 
     // output
-    private final ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
-    private final ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier;
-    private final ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier;
+    private ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
+    private ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier;
+    private ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier;
 
     public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier, ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier, ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier) {
         this.activityLauncherInputSupplier = activityLauncherInputSupplier;
@@ -54,6 +54,26 @@ public class ControlScheme {
         this.overlayOutputSupplier = overlayOutputSupplier;
         this.permissionRequestOutputSupplier = permissionRequestOutputSupplier;
         this.pairingOverlayOutputSupplier = pairingOverlayOutputSupplier;
+    }
+
+    /**
+     * updates this control scheme to make it the same as the provided new control scheme.
+     * this allows the entire control scheme to be update atomically without having to restart anything.
+     * @param newControlScheme the control scheme to "become" (more or less)
+     */
+    public void update(ControlScheme newControlScheme) {
+        activityLauncherInputSupplier = newControlScheme.activityLauncherInputSupplier;
+        cursorInputSupplier = newControlScheme.cursorInputSupplier;
+        directionalPadInputSupplier = newControlScheme.directionalPadInputSupplier;
+        keyboardInputSupplier = newControlScheme.keyboardInputSupplier;
+        mediaInputSupplier = newControlScheme.mediaInputSupplier;
+        fullNavigationInputSupplier = newControlScheme.fullNavigationInputSupplier;
+        backNavigationInputSupplier = newControlScheme.backNavigationInputSupplier;
+        scrollInputSupplier = newControlScheme.scrollInputSupplier;
+        volumeInputSupplier = newControlScheme.volumeInputSupplier;
+        overlayOutputSupplier = newControlScheme.overlayOutputSupplier;
+        permissionRequestOutputSupplier = newControlScheme.permissionRequestOutputSupplier;
+        pairingOverlayOutputSupplier = newControlScheme.pairingOverlayOutputSupplier;
     }
 
     public ActivityLauncherInput getActivityLauncherInput() throws ControlNotInitializedException {

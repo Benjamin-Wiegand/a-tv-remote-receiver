@@ -195,6 +195,11 @@ public class TVRemoteServer extends Service {
     }
 
     public class ServerBinder extends Binder {
+
+        public void regenerateControlScheme() {
+            controlSourceConnectionManager.regenerateControlScheme();
+        }
+
         public int getPort() {
             if (serverSocket == null) return -1;
             return serverSocket.getLocalPort();

@@ -107,6 +107,11 @@ public class ControlSourceConnectionManager {
         return controlScheme;
     }
 
+    public void regenerateControlScheme() {
+        ControlScheme newControlScheme = generateControlScheme();
+        controlScheme.update(newControlScheme);
+    }
+
     private boolean showRationale(PermissionRequestOverlay.PermissionRequestSpec spec) {
         return getControlScheme().getPermissionRequestOutputOptional()
                 .map(output -> output.showPermissionDialog(spec))
@@ -218,7 +223,7 @@ public class ControlSourceConnectionManager {
 
         // todo: replace these exception messages when the ui is finished
         // using generateControlHandlerSupplier() ensures all the preference parsing only happens once
-        // todo: this of course means the control scheme needs to be regenerated if the preferences change
+        // this of course means the control scheme needs to be regenerated if the preferences change
         return new ControlScheme(
                 generateControlHandlerSupplier(ActivityLauncherInput.class,
                         getPriority.apply(R.string.input_method_preferences_activity_launcher_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
