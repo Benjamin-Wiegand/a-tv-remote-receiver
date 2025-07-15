@@ -21,6 +21,7 @@ import static io.benwiegand.atvremote.receiver.util.PackageUtil.getAppName;
 
 import android.annotation.SuppressLint;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.media.MediaMetadata;
 import android.media.session.MediaController;
@@ -32,10 +33,12 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.Settings;
 import android.service.notification.NotificationListenerService;
 import android.util.Log;
 import android.util.Pair;
 import android.view.KeyEvent;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
@@ -66,6 +69,8 @@ import io.benwiegand.atvremote.receiver.protocol.stream.EventStreamManager;
 import io.benwiegand.atvremote.receiver.protocol.stream.OutgoingStateEventStream;
 import io.benwiegand.atvremote.receiver.stuff.AnonymousUUIDTranslator;
 import io.benwiegand.atvremote.receiver.stuff.FakeKeyDownUpHandler;
+import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
+import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class NotificationInputService extends NotificationListenerService {
     private static final String TAG = NotificationInputService.class.getSimpleName();
@@ -450,6 +455,33 @@ public class NotificationInputService extends NotificationListenerService {
             onActiveSessionsChanged(mediaSessionManager.getActiveSessions(getComponentName()));
         }
 
+    }
+    public static PermissionRequestOverlay.PermissionRequestSpec getPermissionRequestSpec(Context context) {
+        return new PermissionRequestOverlay.PermissionRequestSpec(
+                R.string.permission_request_title_notification_listener_service,
+                R.string.permission_request_subtitle_notification_listener_service,
+                new int[] {
+                        R.string.feature_media_session_control,
+                        R.string.feature_media_metadata,
+                },
+                R.string.permission_request_instructions_header_settings_location,
+                R.string.permission_request_instructions_details_notification_listener_service,
+                new UiUtil.ButtonPreset(R.string.permission_request_grant_button_settings, v -> {
+                    Intent[] intents = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? new Intent[] {
+                            new Intent(Settings.ACTION_NOTIFICATION_LISTENER_DETAIL_SETTINGS)
+                                    .putExtra(Settings.EXTRA_NOTIFICATION_LISTENER_COMPONENT_NAME, new ComponentName(context, NotificationInputService.class).flattenToString())
+                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    } : new Intent[] {
+                            new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            new Intent(Settings.ACTION_SETTINGS).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                    };
+                    boolean opened = UiUtil.tryActivityIntents(context, intents);
+                    if (opened) return;
+                    Toast.makeText(context, R.string.permission_request_instructions_settings_not_found_error, Toast.LENGTH_LONG).show();
+                }),
+                () -> {});
     }
 
 }
