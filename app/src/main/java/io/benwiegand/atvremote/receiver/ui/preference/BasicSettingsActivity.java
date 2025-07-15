@@ -38,7 +38,7 @@ public class BasicSettingsActivity extends FragmentActivity {
 
     public static Intent getLaunchIntent(Context context, @XmlRes int preferenceRes) {
         return new Intent(context, BasicSettingsActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_MULTIPLE_TASK)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 .putExtra(EXTRA_PREFERENCE_XML_RESOURCE, preferenceRes);
     }
 }
