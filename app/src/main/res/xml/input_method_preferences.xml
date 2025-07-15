@@ -102,4 +102,15 @@
         app:dialogMessage="@string/input_method_preferences_activity_launcher_description"
         />
 
+    <ListPreference
+        app:key="@string/input_method_preferences_power_priority_key"
+        app:title="@string/input_method_preferences_power_priority_label"
+        app:entries="@array/input_method_preferences_power_priority_entries"
+        app:entryValues="@array/input_method_preferences_power_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_power_description"
+        />
+
 </PreferenceScreen>

@@ -48,6 +48,11 @@
         <item>accessibility launcher</item>
     </string-array>
 
+    <string-array name="input_method_preferences_power_priority_entries">
+        <item>automatic</item>
+        <item>accessibility power</item>
+    </string-array>
+
 
     <!-- preference values -->
 
@@ -98,6 +103,11 @@
     </string-array>
 
     <string-array translatable="false" name="input_method_preferences_activity_launcher_priority_values">
+        <item>auto</item>
+        <item>accessibility</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_power_priority_values">
         <item>auto</item>
         <item>accessibility</item>
     </string-array>

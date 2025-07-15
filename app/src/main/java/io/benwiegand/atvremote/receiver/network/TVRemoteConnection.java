@@ -386,6 +386,8 @@ public class TVRemoteConnection implements Closeable {
                 }),
                 new OperationDefinition(OP_CURSOR_LEFT_BUTTON, handleKeyEvent(type -> controlScheme.getCursorInput().leftClick(type))),
 
+                new OperationDefinition(OP_POWER_BUTTON, handleKeyEvent(type -> controlScheme.getPowerInput().powerButton(type))),
+
                 new OperationDefinition(OP_EXTRA_BUTTON, extra -> {
                     switch (extra) {
                         case EXTRA_BUTTON_GTV_DASHBOARD -> controlScheme.getFullNavigationInput().navNotifications(KeyEventType.CLICK);

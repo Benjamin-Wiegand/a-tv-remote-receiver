@@ -30,6 +30,7 @@ public record ReceiverCapabilities(
         features.add(SUPPORTED_FEATURE_MEDIA_CONTROLS);
         features.add(SUPPORTED_FEATURE_MOUSE);
         features.add(SUPPORTED_FEATURE_VOLUME);
+        features.add(SUPPORTED_FEATURE_POWER_BUTTON);
 
         if (supportsDashboardButton(pm)) buttons.add(EXTRA_BUTTON_GTV_DASHBOARD);
         if (supportsLineageSystemOptionsButton(pm)) buttons.add(EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS);
@@ -68,6 +69,9 @@ public record ReceiverCapabilities(
 
     // setup-dependent
     public static final String SUPPORTED_FEATURE_VOLUME = "VOLUME";
+
+    // everything-dependent
+    public static final String SUPPORTED_FEATURE_POWER_BUTTON = "POWER_BUTTON";
 
     // google tv
     public static final String EXTRA_BUTTON_GTV_DASHBOARD = "DASHBOARD_BUTTON";

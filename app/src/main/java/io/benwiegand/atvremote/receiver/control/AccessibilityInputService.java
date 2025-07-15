@@ -13,6 +13,7 @@ import android.media.AudioManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.provider.Settings;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -47,6 +48,7 @@ import io.benwiegand.atvremote.receiver.control.input.CursorInput;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.PowerInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
@@ -62,6 +64,7 @@ import io.benwiegand.atvremote.receiver.ui.FakeFocusOverlay;
 import io.benwiegand.atvremote.receiver.ui.NotificationOverlay;
 import io.benwiegand.atvremote.receiver.ui.PairingDialog;
 import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
+import io.benwiegand.atvremote.receiver.ui.WakeupOverlay;
 import io.benwiegand.atvremote.receiver.util.UiUtil;
 
 public class AccessibilityInputService extends AccessibilityService implements MakeshiftBindCallback {
@@ -127,6 +130,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private final VolumeInput volumeInput = new VolumeInputHandler();
     private final ActivityLauncherInput activityLauncherInput = new ActivityLauncherInputHandler();
     private final KeyboardInput keyboardInput = new KeyboardInputHandler();
+    private final PowerInput powerInput = new PowerInputHandler();
     private final OverlayOutput overlayOutput = new OverlayOutputHandler();
 
     private NotificationOverlay notificationOverlay = null;
@@ -1335,6 +1339,30 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
+    public class PowerInputHandler implements PowerInput {
+        private final FakeKeyDownUpHandler fakePowerButtonHandler = new FakeKeyDownUpHandler(
+                () -> {
+                    PowerManager powMan = getSystemService(PowerManager.class);
+                    if (powMan.isInteractive()) {
+                        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P) {
+                            Log.e(TAG, "can't turn screen off from accessibility service on this api level");
+                            return;
+                        }
+                        Log.i(TAG, "turning screen off");
+                        performGlobalAction(GLOBAL_ACTION_LOCK_SCREEN);
+                    } else {
+                        Log.i(TAG, "turning screen on");
+                        WakeupOverlay.triggerWakeup(AccessibilityInputService.this);
+                    }
+                },
+                () -> performGlobalAction(GLOBAL_ACTION_POWER_DIALOG));
+
+        @Override
+        public void powerButton(KeyEventType type) {
+            fakePowerButtonHandler.onKeyEvent(type);
+        }
+    }
+
     // todo: scroll
 
     public class OverlayOutputHandler implements OverlayOutput {
@@ -1455,6 +1483,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return keyboardInput;
         }
 
+        public PowerInput getPowerInput() {
+            return powerInput;
+        }
+
         public OverlayOutput getOverlayOutput() {
             return overlayOutput;
         }
@@ -1508,6 +1540,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         featureStrings.add(R.string.feature_volume_control);
         featureStrings.add(R.string.feature_fake_mouse);
+        featureStrings.add(R.string.feature_power);
 
         FEATURE_STRINGS = new int[featureStrings.size()];
         for (int i = 0; i < featureStrings.size(); i++) {

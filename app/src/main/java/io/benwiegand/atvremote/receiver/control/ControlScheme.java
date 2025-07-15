@@ -9,6 +9,7 @@ import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
 import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.PowerInput;
 import io.benwiegand.atvremote.receiver.control.input.ScrollInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
@@ -34,14 +35,14 @@ public class ControlScheme {
     private ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier;
     private ControlHandlerSupplier<ScrollInput> scrollInputSupplier;
     private ControlHandlerSupplier<VolumeInput> volumeInputSupplier;
-    // todo: power (sleep and menu)
+    private ControlHandlerSupplier<PowerInput> powerInputSupplier;
 
     // output
     private ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier;
     private ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier;
     private ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier;
 
-    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier, ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier, ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier) {
+    public ControlScheme(ControlHandlerSupplier<ActivityLauncherInput> activityLauncherInputSupplier, ControlHandlerSupplier<CursorInput> cursorInputSupplier, ControlHandlerSupplier<DirectionalPadInput> directionalPadInputSupplier, ControlHandlerSupplier<KeyboardInput> keyboardInputSupplier, ControlHandlerSupplier<MediaInput> mediaInputSupplier, ControlHandlerSupplier<FullNavigationInput> fullNavigationInputSupplier, ControlHandlerSupplier<BackNavigationInput> backNavigationInputSupplier, ControlHandlerSupplier<ScrollInput> scrollInputSupplier, ControlHandlerSupplier<VolumeInput> volumeInputSupplier, ControlHandlerSupplier<PowerInput> powerInputSupplier, ControlHandlerSupplier<OverlayOutput> overlayOutputSupplier, ControlHandlerSupplier<PermissionRequestOutput> permissionRequestOutputSupplier, ControlHandlerSupplier<PairingOverlayOutput> pairingOverlayOutputSupplier) {
         this.activityLauncherInputSupplier = activityLauncherInputSupplier;
         this.cursorInputSupplier = cursorInputSupplier;
         this.directionalPadInputSupplier = directionalPadInputSupplier;
@@ -51,6 +52,7 @@ public class ControlScheme {
         this.backNavigationInputSupplier = backNavigationInputSupplier;
         this.scrollInputSupplier = scrollInputSupplier;
         this.volumeInputSupplier = volumeInputSupplier;
+        this.powerInputSupplier = powerInputSupplier;
         this.overlayOutputSupplier = overlayOutputSupplier;
         this.permissionRequestOutputSupplier = permissionRequestOutputSupplier;
         this.pairingOverlayOutputSupplier = pairingOverlayOutputSupplier;
@@ -71,6 +73,7 @@ public class ControlScheme {
         backNavigationInputSupplier = newControlScheme.backNavigationInputSupplier;
         scrollInputSupplier = newControlScheme.scrollInputSupplier;
         volumeInputSupplier = newControlScheme.volumeInputSupplier;
+        powerInputSupplier = newControlScheme.powerInputSupplier;
         overlayOutputSupplier = newControlScheme.overlayOutputSupplier;
         permissionRequestOutputSupplier = newControlScheme.permissionRequestOutputSupplier;
         pairingOverlayOutputSupplier = newControlScheme.pairingOverlayOutputSupplier;
@@ -110,6 +113,10 @@ public class ControlScheme {
 
     public VolumeInput getVolumeInput() throws ControlNotInitializedException {
         return volumeInputSupplier.get();
+    }
+
+    public PowerInput getPowerInput() throws ControlNotInitializedException {
+        return powerInputSupplier.get();
     }
 
     public OverlayOutput getOverlayOutput() throws ControlNotInitializedException {

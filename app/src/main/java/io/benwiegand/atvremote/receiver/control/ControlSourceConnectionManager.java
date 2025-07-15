@@ -26,6 +26,7 @@ import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.control.input.KeyboardInput;
 import io.benwiegand.atvremote.receiver.control.input.MediaInput;
 import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
+import io.benwiegand.atvremote.receiver.control.input.PowerInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
@@ -61,6 +62,7 @@ public class ControlSourceConnectionManager {
     private KeyboardInput accessibilityKeyboardInput = null;
     private FullNavigationInput accessibilityFullNavigationInput = null;
     private VolumeInput accessibilityVolumeInput = null;
+    private PowerInput accessibilityPowerInput = null;
     private OverlayOutput accessibilityOverlayOutput = null;
 
     private MediaInput notificationListenerMediaInput = null;
@@ -359,6 +361,15 @@ public class ControlSourceConnectionManager {
                                         getImeExceptionStringRes)
                         )),
 
+                generateControlHandlerSupplier(PowerInput.class,
+                        getPriority.apply(R.string.input_method_preferences_power_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
+                        Map.of(
+                                CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
+                                        () -> accessibilityPowerInput,
+                                        showAccessibilityRationale,
+                                        getAccessibilityExceptionStringRes)
+                        )),
+
                 () -> {
                     synchronized (inputLock) {
                         if (accessibilityOverlayOutput != null) return accessibilityOverlayOutput;
@@ -395,6 +406,7 @@ public class ControlSourceConnectionManager {
                 accessibilityVolumeInput = binder.getVolumeInput();
                 accessibilityActivityLauncherInput = binder.getActivityLauncherInput();
                 accessibilityKeyboardInput = binder.getKeyboardInput();
+                accessibilityPowerInput = binder.getPowerInput();
 
                 accessibilityOverlayOutput = binder.getOverlayOutput();
             }
@@ -414,6 +426,7 @@ public class ControlSourceConnectionManager {
                 accessibilityVolumeInput = null;
                 accessibilityActivityLauncherInput = null;
                 accessibilityKeyboardInput = null;
+                accessibilityPowerInput = null;
                 accessibilityOverlayOutput = null;
             }
         }

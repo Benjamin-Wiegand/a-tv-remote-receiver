@@ -64,6 +64,8 @@ public class ProtocolConstants {
     public static final String OP_CURSOR_MOVE = "CURSOR_MOVE";
     public static final String OP_CURSOR_LEFT_BUTTON = "CURSOR_LEFT_BUTTON";
 
+    public static final String OP_POWER_BUTTON = "POWER_BUTTON";
+
     public static final String OP_EXTRA_BUTTON = "EXTRA_BUTTON";
 
     // keyboard
