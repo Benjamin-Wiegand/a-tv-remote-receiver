@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <string-array name="input_method_preferences_dpad_priority_entries">
+        <item>automatic</item>
+        <item>accessibility dpad, accessibility assisted ime dpad, fake dpad, ime dpad</item>
+        <item>accessibility dpad, fake dpad, accessibility assisted ime dpad, ime dpad</item>
+        <item>ime dpad, accessibility dpad, fake dpad</item>
+        <item>accessibility dpad, fake dpad, ime dpad</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_keyboard_priority_entries">
+        <item>automatic</item>
+        <item>ime keyboard, accessibility keyboard</item>
+        <item>accessibility keyboard, ime keyboard</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_media_priority_entries">
+        <item>automatic</item>
+        <item>ime media, notification service media</item>
+        <item>notification service media, ime media</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_full_navigation_priority_entries">
+        <item>automatic</item>
+        <item>accessibility navigation</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_back_navigation_priority_entries">
+        <item>automatic</item>
+        <item>accessibility navigation, ime navigation</item>
+        <item>ime navigation, accessibility navigation</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_volume_priority_entries">
+        <item>automatic</item>
+        <item>accessibility volume, ime volume</item>
+        <item>ime volume, accessibility volume</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_mouse_cursor_priority_entries">
+        <item>automatic</item>
+        <item>accessibility cursor</item>
+    </string-array>
+
+    <string-array name="input_method_preferences_activity_launcher_priority_entries">
+        <item>automatic</item>
+        <item>accessibility launcher</item>
+    </string-array>
+
+
+    <!-- preference values -->
+
+    <!-- these are in order of priority, if the first isn't available it falls back to the second, and so on -->
+    <!-- the control source identifiers are separated by commas -->
+    <!-- the aforementioned identifiers are defined in code -->
+    <!-- also make sure every value here has a corresponding entry (defined above) -->
+    <string-array translatable="false" name="input_method_preferences_dpad_priority_values">
+        <item>auto</item>
+        <item>ime_assist,accessibility,ime</item>
+        <item>accessibility,ime_assist,ime</item>
+        <item>ime,accessibility</item>
+        <item>accessibility,ime</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_keyboard_priority_values">
+        <item>auto</item>
+        <item>ime,accessibility</item>
+        <item>accessibility,ime</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_media_priority_values">
+        <item>auto</item>
+        <item>ime,notification</item>
+        <item>notification,ime</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_full_navigation_priority_values">
+        <item>auto</item>
+        <item>accessibility</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_back_navigation_priority_values">
+        <item>auto</item>
+        <item>accessibility,ime</item>
+        <item>ime,accessibility</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_volume_priority_values">
+        <item>auto</item>
+        <item>accessibility,ime</item>
+        <item>ime,accessibility</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_mouse_cursor_priority_values">
+        <item>auto</item>
+        <item>accessibility</item>
+    </string-array>
+
+    <string-array translatable="false" name="input_method_preferences_activity_launcher_priority_values">
+        <item>auto</item>
+        <item>accessibility</item>
+    </string-array>
+
+</resources>

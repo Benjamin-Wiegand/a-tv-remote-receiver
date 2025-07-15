@@ -132,4 +132,39 @@
     <!-- ime -->
     <string name="ime_input_view_notice">the keyboard is currently set to only take input from the remote app</string>
     <string name="ime_input_view_revert_soft_keyboard_button">switch back to on-screen keyboard</string>
+
+
+    <!-- input method preferences -->
+    <string name="input_method_preferences_title">Advanced Input Method Configuration</string>
+    <string name="input_method_preferences_description">This screen allows you to manually define which control handlers are used for different types of input. A TV Remote Receiver attempts to determine the best settings automatically, so this shouldn\'t be necessary in most cases.</string>
+    <string name="input_method_preferences_custom_priority_switch_label">Use custom control handler priorities</string>
+
+    <string name="input_method_preferences_dpad_priority_label">Directional Pad Input</string>
+    <string name="input_method_preferences_keyboard_priority_label">Keyboard Input</string>
+    <string name="input_method_preferences_media_priority_label">Primary Media Control Input</string>
+    <string name="input_method_preferences_full_navigation_priority_label">Full Navigation Input</string>
+    <string name="input_method_preferences_back_navigation_priority_label">Back Navigation Input</string>
+    <string name="input_method_preferences_mouse_priority_label">Mouse Input</string>
+    <string name="input_method_preferences_activity_launcher_priority_label">Activity Launch Input</string>
+
+    <string name="input_method_preferences_dpad_description">accessibility dpad is Android 13+ only. ime dpad works on most apps, has reliability issues. fake dpad works on native UIs (usually). accessibility assisted ime dpad tries to balance fake/ime dpad.</string>
+    <string name="input_method_preferences_keyboard_description">ime keyboard utilizes a keyboard service, accessibility keyboard only works on Android 13+ and only works on native text boxes.</string>
+    <string name="input_method_preferences_media_description">ime media simulates real media buttons, notification service media controls the primary media session directly. not all apps use the media session api (but most do).</string>
+    <string name="input_method_preferences_full_navigation_description">accessibility navigation uses global accessibility actions to simulate navigation events.</string>
+    <string name="input_method_preferences_back_navigation_description">accessibility navigation uses a global accessibility action to simulate back navigation. ime navigation sends a back button key event to the application.</string>
+    <string name="input_method_preferences_volume_description">accessibility volume directly controls the volume via audio manager. ime volume sends volume button key events to the application, which may be ignored and not work.</string>
+    <string name="input_method_preferences_mouse_cursor_description">accessibility cursor draws a fake mouse cursor and simulates gestures for clicking/dragging. the device must have a touch screen or support fake touch for this to work (most real TVs don\'t)</string>
+    <string name="input_method_preferences_activity_launcher_description">accessibility launcher uses accessibility service context to launch activities from the background.</string>
+
+
+    <!-- preference keys (don't translate these) -->
+    <string translatable="false" name="input_method_preferences_custom_priority_key">custom_control_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_dpad_priority_key">manual_dpad_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_keyboard_priority_key">manual_keyboard_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_media_priority_key">manual_media_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_full_navigation_priority_key">manual_full_navigation_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_back_navigation_priority_key">manual_back_navigation_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_volume_priority_key">manual_volume_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_mouse_cursor_priority_key">manual_mouse_cursor_handler_priority</string>
+    <string translatable="false" name="input_method_preferences_activity_launcher_priority_key">manual_activity_launcher_handler_priority</string>
 </resources>

@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    app:title="@string/input_method_preferences_title"
+    >
+
+    <Preference
+        app:title="@string/input_method_preferences_description"
+        />
+
+    <SwitchPreferenceCompat
+        app:key="@string/input_method_preferences_custom_priority_key"
+        app:title="@string/input_method_preferences_custom_priority_switch_label"
+        app:defaultValue="false"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_dpad_priority_key"
+        app:title="@string/input_method_preferences_dpad_priority_label"
+        app:entries="@array/input_method_preferences_dpad_priority_entries"
+        app:entryValues="@array/input_method_preferences_dpad_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_dpad_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_keyboard_priority_key"
+        app:title="@string/input_method_preferences_keyboard_priority_label"
+        app:entries="@array/input_method_preferences_keyboard_priority_entries"
+        app:entryValues="@array/input_method_preferences_keyboard_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_keyboard_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_media_priority_key"
+        app:title="@string/input_method_preferences_media_priority_label"
+        app:entries="@array/input_method_preferences_media_priority_entries"
+        app:entryValues="@array/input_method_preferences_media_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_media_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_full_navigation_priority_key"
+        app:title="@string/input_method_preferences_full_navigation_priority_label"
+        app:entries="@array/input_method_preferences_full_navigation_priority_entries"
+        app:entryValues="@array/input_method_preferences_full_navigation_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_full_navigation_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_back_navigation_priority_key"
+        app:title="@string/input_method_preferences_back_navigation_priority_label"
+        app:entries="@array/input_method_preferences_back_navigation_priority_entries"
+        app:entryValues="@array/input_method_preferences_back_navigation_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_back_navigation_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_volume_priority_key"
+        app:title="input_method_preferences_volume_priority_label"
+        app:entries="@array/input_method_preferences_volume_priority_entries"
+        app:entryValues="@array/input_method_preferences_volume_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_volume_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_mouse_cursor_priority_key"
+        app:title="@string/input_method_preferences_mouse_priority_label"
+        app:entries="@array/input_method_preferences_mouse_cursor_priority_entries"
+        app:entryValues="@array/input_method_preferences_mouse_cursor_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_mouse_cursor_description"
+        />
+
+    <ListPreference
+        app:key="@string/input_method_preferences_activity_launcher_priority_key"
+        app:title="@string/input_method_preferences_activity_launcher_priority_label"
+        app:entries="@array/input_method_preferences_activity_launcher_priority_entries"
+        app:entryValues="@array/input_method_preferences_activity_launcher_priority_values"
+        app:defaultValue="auto"
+        app:useSimpleSummaryProvider="true"
+        app:dependency="@string/input_method_preferences_custom_priority_key"
+        app:dialogMessage="@string/input_method_preferences_activity_launcher_description"
+        />
+
+</PreferenceScreen>

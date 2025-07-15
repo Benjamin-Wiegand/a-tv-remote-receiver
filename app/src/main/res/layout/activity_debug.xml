@@ -36,6 +36,12 @@
             android:layout_height="wrap_content"
             android:text="show debug overlay" />
 
+        <Button
+            android:id="@+id/input_method_settings_button"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="advanced input method settings" />
+
         <Spinner
             android:id="@+id/debug_show_matching_nodes_spinner"
             android:layout_width="match_parent"
