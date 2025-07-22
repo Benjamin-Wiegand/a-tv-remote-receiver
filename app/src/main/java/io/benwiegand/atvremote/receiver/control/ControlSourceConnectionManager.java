@@ -1,9 +1,6 @@
 package io.benwiegand.atvremote.receiver.control;
 
-import android.content.ComponentName;
 import android.content.Context;
-import android.content.Intent;
-import android.content.ServiceConnection;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.IBinder;
@@ -29,10 +26,17 @@ import io.benwiegand.atvremote.receiver.control.input.FullNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.PowerInput;
 import io.benwiegand.atvremote.receiver.control.input.VolumeInput;
 import io.benwiegand.atvremote.receiver.control.output.OverlayOutput;
-import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.control.output.PairingOverlayOutput;
+import io.benwiegand.atvremote.receiver.control.output.PermissionRequestOutput;
+import io.benwiegand.atvremote.receiver.stuff.Destroyable;
 import io.benwiegand.atvremote.receiver.ui.PermissionRequestOverlay;
 
-public class ControlSourceConnectionManager {
+/**
+ * connects to ControlHandlers and exposes a ControlScheme which returns one of each type (if one
+ * exists) with respect to the configured input priorities. If there is no available ControlHandler
+ * of that type, an exception is thrown and/or a permission rationale is displayed.
+ */
+public class ControlSourceConnectionManager implements Destroyable {
     private static final String TAG = ControlSourceConnectionManager.class.getSimpleName();
 
     private static final String CONTROL_PRIORITY_AUTO = "auto";
@@ -41,68 +45,18 @@ public class ControlSourceConnectionManager {
     private static final String CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER = "notification";
     private static final String CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD = "ime_assist";
 
-    private final MakeshiftServiceConnection accessibilityInputServiceConnection = new AccessibilityInputServiceConnection();
-    private final MakeshiftServiceConnection imeInputServiceConnection = new IMEInputServiceConnection();
-    private ServiceConnection notificationInputServiceConnection = new NotificationInputServiceConnection();
-
+    private final ControlSourceConnector controlSourceConnector;
     private final ControlScheme controlScheme;
     private final Context context;
 
-    private final Consumer<IBinder> onBind;
-
-    private final Object deathLock = new Object();
-    private boolean dead = false;
-
-    private final Object inputLock = new Object();
-
-    private ActivityLauncherInput accessibilityActivityLauncherInput = null;
-    private CursorInput accessibilityFakeCursorInput = null;
-    private DirectionalPadInput accessibilityDirectionalPadInput = null;
-    private DirectionalPadInput accessibilityAssistedImeDirectionalPadInput = null;
-    private KeyboardInput accessibilityKeyboardInput = null;
-    private FullNavigationInput accessibilityFullNavigationInput = null;
-    private VolumeInput accessibilityVolumeInput = null;
-    private PowerInput accessibilityPowerInput = null;
-    private OverlayOutput accessibilityOverlayOutput = null;
-
-    private MediaInput notificationListenerMediaInput = null;
-
-    private DirectionalPadInput imeDirectionalPadInput = null;
-    private BackNavigationInput imeBackNavigationInput = null;
-    private KeyboardInput imeKeyboardInput = null;
-    private MediaInput imeMediaInput = null;
-    private VolumeInput imeVolumeInput = null;
-
-    private final ApplicationOverlayOutputHandler applicationOverlayOutput;
-
     public ControlSourceConnectionManager(Context context, Consumer<IBinder> onBind) {
         this.context = context;
-        this.onBind = onBind;
-
-        applicationOverlayOutput = new ApplicationOverlayOutputHandler(context);
-
+        controlSourceConnector = new ControlSourceConnector(context, onBind);
         controlScheme = generateControlScheme();
-
-        // "bind" accessibility service
-        MakeshiftServiceConnection.bindService(context, new ComponentName(context, AccessibilityInputService.class), accessibilityInputServiceConnection);
-        MakeshiftServiceConnection.bindService(context, new ComponentName(context, IMEInputService.class), imeInputServiceConnection);
-
-        // bind notification listener service
-        Intent notificationInputServiceIntent = new Intent(context, NotificationInputService.class);
-        boolean bindResult = context.bindService(notificationInputServiceIntent, notificationInputServiceConnection, 0);
-        assert bindResult;
     }
 
     public void destroy() {
-        synchronized (deathLock) {
-            dead = true;
-        }
-
-        accessibilityInputServiceConnection.destroy();
-        imeInputServiceConnection.destroy();
-        applicationOverlayOutput.destroy();
-
-        context.unbindService(notificationInputServiceConnection);
+        controlSourceConnector.destroy();
     }
 
     public ControlScheme getControlScheme() {
@@ -182,11 +136,9 @@ public class ControlSourceConnectionManager {
 
         Runnable finalHandleAllMissing = handleAllMissing;
         return () -> {
-            synchronized (inputLock) {
-                for (ControlHandlerSupplier<T> supplier : suppliers) {
-                    T controlHandler = supplier.get();
-                    if (controlHandler != null) return controlHandler;
-                }
+            for (ControlHandlerSupplier<T> supplier : suppliers) {
+                T controlHandler = supplier.get();
+                if (controlHandler != null) return controlHandler;
             }
 
             finalHandleAllMissing.run();
@@ -231,7 +183,7 @@ public class ControlSourceConnectionManager {
                         getPriority.apply(R.string.input_method_preferences_activity_launcher_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityActivityLauncherInput,
+                                        controlSourceConnector::getAccessibilityActivityLauncherInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes)
                         )),
@@ -240,7 +192,7 @@ public class ControlSourceConnectionManager {
                         getPriority.apply(R.string.input_method_preferences_mouse_cursor_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityFakeCursorInput,
+                                        controlSourceConnector::getAccessibilityFakeCursorInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes)
                         )),
@@ -261,15 +213,15 @@ public class ControlSourceConnectionManager {
                                     )),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityAssistedImeDirectionalPadInput,
+                                        controlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityDirectionalPadInput,
+                                        controlSourceConnector::getAccessibilityDirectionalPadInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,
-                                        () -> imeDirectionalPadInput,
+                                        controlSourceConnector::getImeDirectionalPadInput,
                                         showImeRationale,
                                         getImeExceptionStringRes)
                         )),
@@ -288,11 +240,11 @@ public class ControlSourceConnectionManager {
                                 )),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityKeyboardInput,
+                                        controlSourceConnector::getAccessibilityKeyboardInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,
-                                        () -> imeKeyboardInput,
+                                        controlSourceConnector::getImeKeyboardInput,
                                         showImeRationale,
                                         getImeExceptionStringRes)
                         )),
@@ -305,11 +257,11 @@ public class ControlSourceConnectionManager {
                                         CONTROL_PRIORITY_IDENTIFIER_IME)),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER, new ControlHandlerInfo<>(context,
-                                        () -> notificationListenerMediaInput,
+                                        controlSourceConnector::getNotificationListenerMediaInput,
                                         showNotificationListenerRationale,
                                         getNotificationListenerExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,
-                                        () -> imeMediaInput,
+                                        controlSourceConnector::getImeMediaInput,
                                         showImeRationale,
                                         getImeExceptionStringRes)
                         )),
@@ -318,7 +270,7 @@ public class ControlSourceConnectionManager {
                         getPriority.apply(R.string.input_method_preferences_full_navigation_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityFullNavigationInput,
+                                        controlSourceConnector::getAccessibilityFullNavigationInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes)
                         )),
@@ -331,11 +283,11 @@ public class ControlSourceConnectionManager {
                                         CONTROL_PRIORITY_IDENTIFIER_IME)),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityFullNavigationInput,
+                                        controlSourceConnector::getAccessibilityFullNavigationInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,
-                                        () -> imeBackNavigationInput,
+                                        controlSourceConnector::getImeBackNavigationInput,
                                         showImeRationale,
                                         getImeExceptionStringRes)
                         )),
@@ -352,11 +304,11 @@ public class ControlSourceConnectionManager {
                                         CONTROL_PRIORITY_IDENTIFIER_IME)),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityVolumeInput,
+                                        controlSourceConnector::getAccessibilityVolumeInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,
-                                        () -> imeVolumeInput,
+                                        controlSourceConnector::getImeVolumeInput,
                                         showImeRationale,
                                         getImeExceptionStringRes)
                         )),
@@ -365,155 +317,31 @@ public class ControlSourceConnectionManager {
                         getPriority.apply(R.string.input_method_preferences_power_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        () -> accessibilityPowerInput,
+                                        controlSourceConnector::getAccessibilityPowerInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes)
                         )),
 
                 () -> {
-                    synchronized (inputLock) {
-                        if (accessibilityOverlayOutput != null) return accessibilityOverlayOutput;
-                    }
+                    OverlayOutput accessibilityOverlayOutput = controlSourceConnector.getAccessibilityOverlayOutput();
+                    if (accessibilityOverlayOutput != null) return accessibilityOverlayOutput;
+
                     // don't show a rationale for every notification that would be annoying
                     throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_accessibility));
                 },
                 () -> {
-                    if (!applicationOverlayOutput.checkPermission())
-                        throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_application_overlay));
-                    return applicationOverlayOutput;
+                    PermissionRequestOutput applicationOverlayOutput = controlSourceConnector.getApplicationOverlayOutput();
+                    if (applicationOverlayOutput != null) return applicationOverlayOutput;
+
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_application_overlay));
                 },
                 () -> {
-                    if (!applicationOverlayOutput.checkPermission())
-                        throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_application_overlay));
-                    return applicationOverlayOutput;
+                    PairingOverlayOutput applicationOverlayOutput = controlSourceConnector.getApplicationOverlayOutput();
+                    if (applicationOverlayOutput != null) return applicationOverlayOutput;
+
+                    throw new ControlNotInitializedException(context.getString(R.string.control_source_not_loaded_application_overlay));
                 }
         );
     }
 
-    private class AccessibilityInputServiceConnection extends MakeshiftServiceConnection {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.i(TAG, "AccessibilityInputService connected");
-
-            AccessibilityInputService.AccessibilityInputHandler binder = (AccessibilityInputService.AccessibilityInputHandler) service;
-
-            // set accessibility control methods
-            synchronized (inputLock) {
-                accessibilityDirectionalPadInput = binder.getDirectionalPadInput();
-                accessibilityFullNavigationInput = binder.getFullNavigationInput();
-                accessibilityAssistedImeDirectionalPadInput = binder.getAssistedImeDirectionalPadInput();
-                accessibilityFakeCursorInput = binder.getCursorInput();
-                accessibilityVolumeInput = binder.getVolumeInput();
-                accessibilityActivityLauncherInput = binder.getActivityLauncherInput();
-                accessibilityKeyboardInput = binder.getKeyboardInput();
-                accessibilityPowerInput = binder.getPowerInput();
-
-                accessibilityOverlayOutput = binder.getOverlayOutput();
-            }
-
-            onBind.accept(binder);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.w(TAG, "AccessibilityInputService disconnected");
-
-            synchronized (inputLock) {
-                accessibilityDirectionalPadInput = null;
-                accessibilityFullNavigationInput = null;
-                accessibilityAssistedImeDirectionalPadInput = null;
-                accessibilityFakeCursorInput = null;
-                accessibilityVolumeInput = null;
-                accessibilityActivityLauncherInput = null;
-                accessibilityKeyboardInput = null;
-                accessibilityPowerInput = null;
-                accessibilityOverlayOutput = null;
-            }
-        }
-    }
-
-    private class IMEInputServiceConnection extends MakeshiftServiceConnection {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.i(TAG, "IMEInputService connected");
-
-            IMEInputService.ServiceBinder binder = (IMEInputService.ServiceBinder) service;
-
-            // set control methods
-            synchronized (inputLock) {
-                imeDirectionalPadInput = binder.getDirectionalPadInput();
-                imeBackNavigationInput = binder.getBackNavigationInput();
-                imeVolumeInput = binder.getVolumeInput();
-                imeKeyboardInput = binder.getKeyboardInput();
-                imeMediaInput = binder.getMediaInput();
-            }
-
-            onBind.accept(binder);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.w(TAG, "IMEInputService disconnected");
-
-            synchronized (inputLock) {
-                imeDirectionalPadInput = null;
-                imeBackNavigationInput = null;
-                imeVolumeInput = null;
-                imeKeyboardInput = null;
-                imeMediaInput = null;
-            }
-        }
-    }
-
-    private void refreshNotificationInputServiceConnectionLocked() {
-        Log.v(TAG, "recreating NotificationInputService connection");
-
-        try {
-            context.unbindService(notificationInputServiceConnection);
-        } catch (IllegalArgumentException e) {
-            Log.e(TAG, "failed to unbind NotificationInputService connection", e);
-            assert false;
-        }
-
-        notificationInputServiceConnection = new NotificationInputServiceConnection();
-
-        Intent intent = new Intent(context, NotificationInputService.class);
-        boolean bindResult = context.bindService(intent, notificationInputServiceConnection, 0);
-        assert bindResult;
-    }
-
-    private class NotificationInputServiceConnection implements ServiceConnection {
-        @Override
-        public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.i(TAG, "NotificationInputService connected");
-            NotificationInputService.ServiceBinder binder = (NotificationInputService.ServiceBinder) service;
-
-            synchronized (inputLock) {
-                notificationListenerMediaInput = binder.getMediaInput();
-            }
-
-            onBind.accept(binder);
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName name) {
-            Log.w(TAG, "NotificationInputService disconnected");
-
-            synchronized (inputLock) {
-                notificationListenerMediaInput = null;
-            }
-        }
-
-        @Override
-        public void onBindingDied(ComponentName name) {
-            Log.v(TAG, "NotificationInputService binding deceased");
-            ServiceConnection.super.onBindingDied(name);
-            synchronized (deathLock) {
-                if (dead) return;   // from destroy()
-
-                // when the service is toggled (on -> off) in settings it will kill this connection, which must be recreated
-                refreshNotificationInputServiceConnectionLocked();
-            }
-        }
-    }
 }
