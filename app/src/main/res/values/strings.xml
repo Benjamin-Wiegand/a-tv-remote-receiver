@@ -135,6 +135,12 @@
     <string name="ime_input_view_revert_soft_keyboard_button">switch back to on-screen keyboard</string>
 
 
+    <!-- input method compatibility auto-detection -->
+    <string name="input_compatibility_test_in_progress_text">testing compatibility…</string>
+    <string name="input_compatibility_test_pass_text">PASS</string>
+    <string name="input_compatibility_test_fail_text">FAIL</string>
+
+
     <!-- input method preferences -->
     <string name="input_method_preferences_title">Advanced Input Method Configuration</string>
     <string name="input_method_preferences_description">This screen allows you to manually define which control handlers are used for different types of input. A TV Remote Receiver attempts to determine the best settings automatically, so this shouldn\'t be necessary in most cases.</string>

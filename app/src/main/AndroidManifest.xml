@@ -90,13 +90,14 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
-        android:theme="@style/Theme.ATVRemoteReceiver"
+        android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
         tools:targetApi="31">
         <activity
             android:name=".ui.DebugActivity"
             android:exported="true"
             android:banner="@mipmap/ic_leanback"
             android:icon="@mipmap/ic_launcher"
+            android:theme="@style/Theme.ATVRemoteReceiver"
             >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -116,6 +117,11 @@
             android:name=".ui.preference.InputMethodSettingsActivity"
             android:exported="false"
             android:theme="@style/Theme.ATVRemoteReceiver.Leanback"
+            />
+
+        <activity
+            android:name=".ui.test.InputTestActivity"
+            android:exported="false"
             />
 
         <service
