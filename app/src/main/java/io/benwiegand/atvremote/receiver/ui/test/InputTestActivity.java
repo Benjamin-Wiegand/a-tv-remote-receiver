@@ -67,7 +67,7 @@ public class InputTestActivity extends FragmentActivity {
 
         // todo: fix arbitrary delay
         handler.postDelayed(() -> {
-            testFakeDpad(testContainer);
+            testImeFocusBug(testContainer);
         }, 1000);
 
     }
@@ -89,6 +89,18 @@ public class InputTestActivity extends FragmentActivity {
                 FRAME_LAYOUT_MATCH_PARENT,
                 this::onTestFinished,
                 controlSourceConnector.getAccessibilityDirectionalPadInput());
+        test.startTest();
+
+    }
+
+    private void testImeFocusBug(FrameLayout container) {
+
+        ImeFocusBugTest test = new ImeFocusBugTest(
+                container,
+                FRAME_LAYOUT_MATCH_PARENT,
+                this::onTestFinished,
+                getSupportFragmentManager(),
+                controlSourceConnector.getImeDirectionalPadInput());
         test.startTest();
 
     }
