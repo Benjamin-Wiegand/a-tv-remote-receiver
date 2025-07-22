@@ -133,6 +133,32 @@ public class Sec<T> {
         return secWithAdapter.sec();
     }
 
+    public Sec<T> flatMap(Function<T, Sec<T>> map) {
+        // for now just use the callbacks. this may change in the future
+        SecAdapter.SecWithAdapter<T> secWithAdapter;
+        synchronized (lock) {
+            if (callbacksSet) throw new IllegalStateException("callbacks already set up");
+            callbacksSet = true;
+
+            secWithAdapter = createThreadless();
+
+            SecAdapter<T> adapter = secWithAdapter.secAdapter();
+            this.onResult = applyMap(
+                    map,
+                    nextSec -> nextSec
+                            .doOnResult(adapter::provideResult)
+                            .doOnError(adapter::throwError)
+                            .callMeWhenDone(),
+                    adapter::throwError);
+            this.onError = adapter::throwError;
+        }
+
+        if (isFinished()) callCallbacks();
+
+        return secWithAdapter.sec();
+
+    }
+
     public void callMeWhenDone() {
         synchronized (lock) {
             if (callbacksSet) throw new IllegalStateException("callMeWhenDone() cannot be called twice");
@@ -195,6 +221,12 @@ public class Sec<T> {
     public static <T> Sec<T> premeditatedError(Throwable t) {
         SecAdapter.SecWithAdapter<T> secWithAdapter = createThreadless();
         secWithAdapter.secAdapter().throwError(t);
+        return secWithAdapter.sec();
+    }
+
+    public static <T> Sec<T> premeditated(T r) {
+        SecAdapter.SecWithAdapter<T> secWithAdapter = createThreadless();
+        secWithAdapter.secAdapter().provideResult(r);
         return secWithAdapter.sec();
     }
 
