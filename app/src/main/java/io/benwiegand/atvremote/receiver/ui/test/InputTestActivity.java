@@ -88,7 +88,7 @@ public class InputTestActivity extends FragmentActivity {
                 container,
                 FRAME_LAYOUT_MATCH_PARENT,
                 this::onTestFinished,
-                controlSourceConnector.getAccessibilityDirectionalPadInput());
+                controlSourceConnector.getAccessibilityFakeDirectionalPadInput());
         test.startTest();
 
     }

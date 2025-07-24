@@ -43,7 +43,8 @@ public class ControlSourceConnector implements Destroyable {
 
     private ActivityLauncherInput accessibilityActivityLauncherInput = null;
     private CursorInput accessibilityFakeCursorInput = null;
-    private DirectionalPadInput accessibilityDirectionalPadInput = null;
+    private DirectionalPadInput accessibilityAccDirectionalPadInput = null;
+    private DirectionalPadInput accessibilityFakeDirectionalPadInput = null;
     private DirectionalPadInput accessibilityAssistedImeDirectionalPadInput = null;
     private KeyboardInput accessibilityKeyboardInput = null;
     private FullNavigationInput accessibilityFullNavigationInput = null;
@@ -98,7 +99,8 @@ public class ControlSourceConnector implements Destroyable {
 
             // set accessibility control methods
             synchronized (inputLock) {
-                accessibilityDirectionalPadInput = binder.getDirectionalPadInput();
+                accessibilityAccDirectionalPadInput = binder.getAccessibilityDirectionalPadInput();
+                accessibilityFakeDirectionalPadInput = binder.getFakeDirectionalPadInput();
                 accessibilityFullNavigationInput = binder.getFullNavigationInput();
                 accessibilityAssistedImeDirectionalPadInput = binder.getAssistedImeDirectionalPadInput();
                 accessibilityFakeCursorInput = binder.getCursorInput();
@@ -118,7 +120,8 @@ public class ControlSourceConnector implements Destroyable {
             Log.w(TAG, "AccessibilityInputService disconnected");
 
             synchronized (inputLock) {
-                accessibilityDirectionalPadInput = null;
+                accessibilityAccDirectionalPadInput = null;
+                accessibilityFakeDirectionalPadInput = null;
                 accessibilityFullNavigationInput = null;
                 accessibilityAssistedImeDirectionalPadInput = null;
                 accessibilityFakeCursorInput = null;
@@ -228,9 +231,15 @@ public class ControlSourceConnector implements Destroyable {
         }
     }
 
-    public DirectionalPadInput getAccessibilityDirectionalPadInput() {
+    public DirectionalPadInput getAccessibilityAccDirectionalPadInput() {
         synchronized (inputLock) {
-            return accessibilityDirectionalPadInput;
+            return accessibilityAccDirectionalPadInput;
+        }
+    }
+
+    public DirectionalPadInput getAccessibilityFakeDirectionalPadInput() {
+        synchronized (inputLock) {
+            return accessibilityFakeDirectionalPadInput;
         }
     }
 

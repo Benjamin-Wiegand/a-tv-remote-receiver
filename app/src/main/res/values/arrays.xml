@@ -3,10 +3,11 @@
 
     <string-array name="input_method_preferences_dpad_priority_entries">
         <item>automatic</item>
-        <item>accessibility dpad, accessibility assisted ime dpad, fake dpad, ime dpad</item>
-        <item>accessibility dpad, fake dpad, accessibility assisted ime dpad, ime dpad</item>
-        <item>ime dpad, accessibility dpad, fake dpad</item>
-        <item>accessibility dpad, fake dpad, ime dpad</item>
+        <item>compatibility: accessibility dpad, accessibility assisted ime dpad, ime dpad</item>
+        <item>gaming + compatibility: accessibility assisted ime dpad, ime dpad</item>
+        <item>gaming: ime dpad, accessibility dpad, fake dpad</item>
+        <item>avoid ime: fake dpad, ime dpad</item>
+        <item>avoid ime (Android 13+): accessibility dpad, fake dpad, ime dpad</item>
     </string-array>
 
     <string-array name="input_method_preferences_keyboard_priority_entries">
@@ -62,10 +63,11 @@
     <!-- also make sure every value here has a corresponding entry (defined above) -->
     <string-array translatable="false" name="input_method_preferences_dpad_priority_values">
         <item>auto</item>
-        <item>ime_assist,accessibility,ime</item>
         <item>accessibility,ime_assist,ime</item>
-        <item>ime,accessibility</item>
-        <item>accessibility,ime</item>
+        <item>ime_assist,ime</item>
+        <item>ime,accessibility,fake_dpad</item>
+        <item>fake_dpad,ime</item>
+        <item>accessibility,fake_dpad,ime</item>
     </string-array>
 
     <string-array translatable="false" name="input_method_preferences_keyboard_priority_values">

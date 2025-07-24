@@ -44,6 +44,7 @@ public class ControlSourceConnectionManager implements Destroyable {
     private static final String CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY = "accessibility";
     private static final String CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER = "notification";
     private static final String CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD = "ime_assist";
+    private static final String CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD = "fake_dpad";
 
     private final ControlSourceConnector controlSourceConnector;
     private final ControlScheme controlScheme;
@@ -207,7 +208,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                                                 CONTROL_PRIORITY_IDENTIFIER_IME,
                                         } : new String[] {
                                                 CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD,
-                                                CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
+                                                CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD,
                                                 CONTROL_PRIORITY_IDENTIFIER_IME,
                                         }
                                     )),
@@ -217,7 +218,11 @@ public class ControlSourceConnectionManager implements Destroyable {
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
-                                        controlSourceConnector::getAccessibilityDirectionalPadInput,
+                                        controlSourceConnector::getAccessibilityAccDirectionalPadInput,
+                                        showAccessibilityRationale,
+                                        getAccessibilityExceptionStringRes),
+                                CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD, new ControlHandlerInfo<>(context,
+                                        controlSourceConnector::getAccessibilityFakeDirectionalPadInput,
                                         showAccessibilityRationale,
                                         getAccessibilityExceptionStringRes),
                                 CONTROL_PRIORITY_IDENTIFIER_IME, new ControlHandlerInfo<>(context,

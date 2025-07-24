@@ -72,22 +72,6 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private static final boolean DEBUG_LOGS_UI_UPDATE = false;
 
     /**
-     * fake dpad is necessary because:
-     * <ul>
-     *     <li>there is no GLOBAL_ACTION_DPAD_(whatever) before api 33</li>
-     *     <li>there is no way to switch IME without user confirmation before api 30</li>
-     * </ul>
-     */
-    public static final boolean USES_FAKE_DPAD = false;
-
-    /**
-     * fake dpad can be avoided on api 30, 31, and 32 by leveraging the IME input and switching
-     * between it and the user configured on-screen keyboard.
-     * fake dpad will still have to be used to control the on-screen keyboard.
-     */
-    public static final boolean USES_IME_DPAD_ASSIST = Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU && !USES_FAKE_DPAD;
-
-    /**
      * milliseconds to wait for ime service when started
      */
     private static final long IME_SERVICE_WAIT_TIMEOUT = 500;
@@ -124,7 +108,8 @@ public class AccessibilityInputService extends AccessibilityService implements M
     private MakeshiftBind makeshiftBind = null;
 
     private FakeCursor cursorInput = null;
-    private final DirectionalPadInput directionalPadInput = new DirectionalPadInputHandler();
+    private final DirectionalPadInput fakeDirectionalPadInput = new FakeDirectionalPadInputHandler();
+    private final DirectionalPadInput accessibilityDirectionalPadInput = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new AccessibilityDirectionalPadInputHandler() : null;
     private final DirectionalPadInput assistedImeDirectionalPadInput = new AssistedImeDirectionalPadInputHandler();
     private final FullNavigationInput fullNavigationInput = new FullNavigationInputHandler();
     private final VolumeInput volumeInput = new VolumeInputHandler();
@@ -155,15 +140,15 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
     private final Semaphore imeDpadAssistLimiter = new Semaphore(1);
 
-    private final FakeKeyDownUpHandler fakeSelectButtonHandler = new FakeKeyDownUpHandler(
-            () -> {
-                if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                    fakeDpadSelect();
-                } else {
-                    performGlobalAction(GLOBAL_ACTION_DPAD_CENTER);
-                }
-            },
-            directionalPadInput::dpadLongPress
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    private final FakeKeyDownUpHandler accessibilityFakeSelectButtonHandler = new FakeKeyDownUpHandler(
+            () -> performGlobalAction(GLOBAL_ACTION_DPAD_CENTER),
+            this::fakeDpadLongPress
+    );
+
+    private final FakeKeyDownUpHandler fakeDpadFakeSelectButtonHandler = new FakeKeyDownUpHandler(
+            this::fakeDpadSelect,
+            this::fakeDpadLongPress
     );
 
     private final Object cacheLock = new Object();
@@ -192,9 +177,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
         fakeFocusOverlay = new FakeFocusOverlay(this);
         fakeFocusOverlay.start();
 
-        if (USES_IME_DPAD_ASSIST) {
-            MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), imeInputServiceConnection);
-        }
+        MakeshiftServiceConnection.bindService(this, new ComponentName(this, IMEInputService.class), imeInputServiceConnection);
     }
 
     @Override
@@ -976,58 +959,77 @@ public class AccessibilityInputService extends AccessibilityService implements M
         return Optional.ofNullable(controlScheme);
     }
 
-    public class DirectionalPadInputHandler implements DirectionalPadInput {
-
-
+    @RequiresApi(Build.VERSION_CODES.TIRAMISU)
+    public class AccessibilityDirectionalPadInputHandler implements DirectionalPadInput {
         @Override
         public void dpadDown(KeyEventType type) {
             if (type == KeyEventType.UP) return;
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                fakeDpad(View.FOCUS_DOWN);
-            } else {
-                performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
-            }
+            performGlobalAction(GLOBAL_ACTION_DPAD_DOWN);
         }
 
         @Override
         public void dpadUp(KeyEventType type) {
             if (type == KeyEventType.UP) return;
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                fakeDpad(View.FOCUS_UP);
-            } else {
-                performGlobalAction(GLOBAL_ACTION_DPAD_UP);
-            }
+            performGlobalAction(GLOBAL_ACTION_DPAD_UP);
         }
 
         @Override
         public void dpadLeft(KeyEventType type) {
             if (type == KeyEventType.UP) return;
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                fakeDpad(View.FOCUS_LEFT);
-            } else {
-                performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
-            }
+            performGlobalAction(GLOBAL_ACTION_DPAD_LEFT);
         }
 
         @Override
         public void dpadRight(KeyEventType type) {
             if (type == KeyEventType.UP) return;
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-                fakeDpad(View.FOCUS_RIGHT);
-            } else {
-                performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
-            }
+            performGlobalAction(GLOBAL_ACTION_DPAD_RIGHT);
         }
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            fakeSelectButtonHandler.onKeyEvent(type);
+            accessibilityFakeSelectButtonHandler.onKeyEvent(type);
         }
 
         @Override
         public void dpadLongPress() {
-            AccessibilityNodeInfo node = getOrFindFakeDpadFocus().node();
-            if (node != null) node.performAction(AccessibilityNodeInfo.ACTION_LONG_CLICK);
+            fakeDpadLongPress();
+        }
+    }
+
+    public class FakeDirectionalPadInputHandler implements DirectionalPadInput {
+
+        @Override
+        public void dpadDown(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            fakeDpad(View.FOCUS_DOWN);
+        }
+
+        @Override
+        public void dpadUp(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            fakeDpad(View.FOCUS_UP);
+        }
+
+        @Override
+        public void dpadLeft(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            fakeDpad(View.FOCUS_LEFT);
+        }
+
+        @Override
+        public void dpadRight(KeyEventType type) {
+            if (type == KeyEventType.UP) return;
+            fakeDpad(View.FOCUS_RIGHT);
+        }
+
+        @Override
+        public void dpadSelect(KeyEventType type) {
+            fakeDpadFakeSelectButtonHandler.onKeyEvent(type);
+        }
+
+        @Override
+        public void dpadLongPress() {
+            fakeDpadLongPress();
         }
     }
 
@@ -1039,45 +1041,55 @@ public class AccessibilityInputService extends AccessibilityService implements M
         private boolean selectHeld = false;
         private int selectInitialUiSerial = -1;
 
+
+        private DirectionalPadInput getFallbackInput() {
+            return fakeDirectionalPadInput;
+        }
+
+        private FakeKeyDownUpHandler getFallbackSelectButtonHandler() {
+            // using accessibility action could cause a double input in games
+            return fakeDpadFakeSelectButtonHandler;
+        }
+
         private boolean shouldUseImeDpad() {
-            return USES_IME_DPAD_ASSIST && !isSoftKeyboardUsable() && !isFakeFocusActive();
+            return !isSoftKeyboardUsable() && !isFakeFocusActive();
         }
 
         @Override
         public void dpadDown(KeyEventType type) {
             if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadDown)) return;
-            directionalPadInput.dpadDown(type);
+            getFallbackInput().dpadDown(type);
         }
 
         @Override
         public void dpadUp(KeyEventType type) {
             if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadUp)) return;
-            directionalPadInput.dpadUp(type);
+            getFallbackInput().dpadUp(type);
         }
 
         @Override
         public void dpadLeft(KeyEventType type) {
             if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadLeft)) return;
-            directionalPadInput.dpadLeft(type);
+            getFallbackInput().dpadLeft(type);
         }
 
         @Override
         public void dpadRight(KeyEventType type) {
             if (shouldUseImeDpad() && tryImeDpad(type, DirectionalPadInput::dpadRight)) return;
-            directionalPadInput.dpadRight(type);
+            getFallbackInput().dpadRight(type);
         }
 
         @Override
         public void dpadSelect(KeyEventType type) {
-            if (fakeSelectButtonHandler.isHandlingKeyPress() || !shouldUseImeDpad()) {
-                fakeSelectButtonHandler.onKeyEvent(type);
+            if (getFallbackSelectButtonHandler().isHandlingKeyPress() || !shouldUseImeDpad()) {
+                getFallbackSelectButtonHandler().onKeyEvent(type);
                 return;
             }
 
             switch (type) {
                 case CLICK -> {
                     if (!tryImeDpad(type, DirectionalPadInput::dpadSelect))
-                        fakeSelectButtonHandler.onKeyEvent(type);
+                        getFallbackSelectButtonHandler().onKeyEvent(type);
                 }
                 case DOWN -> {
                     getImeDpad().ifPresentOrElse(input -> {
@@ -1094,7 +1106,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
                         synchronized (selectStateLock) {
                             selectPressed = false;
                             selectHeld = false;
-                            fakeSelectButtonHandler.onKeyEvent(type);
+                            getFallbackSelectButtonHandler().onKeyEvent(type);
                         }
                     });
                 }
@@ -1117,10 +1129,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
                     } catch (InterruptedException ignored) {}
                     if (currSelectHeld) {
                         Log.i(TAG, "select ime fallback long press");
-                        directionalPadInput.dpadLongPress();
+                        getFallbackInput().dpadLongPress();
                     } else if (currSelectPressed) {
                         Log.i(TAG, "select ime fallback click");
-                        fakeSelectButtonHandler.onKeyEvent(KeyEventType.CLICK);
+                        getFallbackSelectButtonHandler().onKeyEvent(KeyEventType.CLICK);
                     } else {
                         Log.d(TAG, "select ime fallback dropped");
                     }
@@ -1455,8 +1467,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
             debugShowMatchingNodesCondition = condition;
         }
 
-        public DirectionalPadInput getDirectionalPadInput() {
-            return directionalPadInput;
+        public DirectionalPadInput getFakeDirectionalPadInput() {
+            return fakeDirectionalPadInput;
+        }
+
+        public DirectionalPadInput getAccessibilityDirectionalPadInput() {
+            return accessibilityDirectionalPadInput;
         }
 
         public DirectionalPadInput getAssistedImeDirectionalPadInput() {
