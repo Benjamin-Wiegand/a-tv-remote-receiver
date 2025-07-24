@@ -642,14 +642,12 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
             // rank nodes by distance first, then alignment with the origin
             siblingRankings.sort((s1, s2) -> {
-                if (forward) {
-                    if (s1.movementAxisPosition() > s2.movementAxisPosition()) return 1;
-                    else if (s1.movementAxisPosition() < s2.movementAxisPosition()) return -1;
-                } else {
-                    if (s1.movementAxisPosition() < s2.movementAxisPosition()) return 1;
-                    else if (s1.movementAxisPosition() > s2.movementAxisPosition()) return -1;
-                }
-                return Math.abs(s1.boundAxisPosition() - nodeRanking.boundAxisPosition()) - Math.abs(s2.boundAxisPosition() - nodeRanking.boundAxisPosition());
+                // "greater than" means greater distance to node
+                int movementOffset = s1.movementAxisPosition() - s2.movementAxisPosition();
+                if (!forward) movementOffset *= -1;
+                int s1BoundProximity = Math.abs(s1.boundAxisPosition() - nodeRanking.boundAxisPosition());
+                int s2BoundProximity = Math.abs(s2.boundAxisPosition() - nodeRanking.boundAxisPosition());
+                return movementOffset + (s1BoundProximity - s2BoundProximity);
             });
 
             // debug laser beams
