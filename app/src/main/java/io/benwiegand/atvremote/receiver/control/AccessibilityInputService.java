@@ -499,6 +499,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     private void fakeFocusNodeLocked(AccessibilityNodeInfo node) {
+        node.performAction(AccessibilityNodeInfo.AccessibilityAction.ACTION_SHOW_ON_SCREEN.getId());
         fakeDpadFakeFocus = node;
         fakeFocusOverlay.drawHighlight(node);
     }
