@@ -1562,6 +1562,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
     public enum NodeCondition {
         NONE,
         CLICKABLE,
+        SCROLLABLE,
         FOCUSABLE,
         ENABLED,
         CHECKABLE,
@@ -1574,6 +1575,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
             return switch (this) {
                 case NONE -> n -> false;
                 case CLICKABLE -> AccessibilityNodeInfo::isClickable;
+                case SCROLLABLE -> AccessibilityNodeInfo::isScrollable;
                 case FOCUSABLE -> AccessibilityNodeInfo::isFocusable;
                 case ENABLED -> AccessibilityNodeInfo::isEnabled;
                 case CHECKABLE -> AccessibilityNodeInfo::isCheckable;
