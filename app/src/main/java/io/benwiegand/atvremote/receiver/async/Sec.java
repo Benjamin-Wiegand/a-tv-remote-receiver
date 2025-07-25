@@ -133,16 +133,16 @@ public class Sec<T> {
         return secWithAdapter.sec();
     }
 
-    public Sec<T> flatMap(Function<T, Sec<T>> map) {
+    public <U> Sec<U> flatMap(Function<T, Sec<U>> map) {
         // for now just use the callbacks. this may change in the future
-        SecAdapter.SecWithAdapter<T> secWithAdapter;
+        SecAdapter.SecWithAdapter<U> secWithAdapter;
         synchronized (lock) {
             if (callbacksSet) throw new IllegalStateException("callbacks already set up");
             callbacksSet = true;
 
             secWithAdapter = createThreadless();
 
-            SecAdapter<T> adapter = secWithAdapter.secAdapter();
+            SecAdapter<U> adapter = secWithAdapter.secAdapter();
             this.onResult = applyMap(
                     map,
                     nextSec -> nextSec
