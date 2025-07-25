@@ -36,6 +36,10 @@ public class PendingSec<T> {
         return wrapSec(sec -> sec.flatMap(mapping));
     }
 
+    public <U> PendingSec<U> mapSec(Function<T, U> mapping) {
+        return wrapSec(sec -> sec.map(mapping));
+    }
+
     public <U> PendingSec<U> flatMap(Function<T, PendingSec<U>> mapping) {
         return flatMapSec(r -> mapping.apply(r).start());
     }
