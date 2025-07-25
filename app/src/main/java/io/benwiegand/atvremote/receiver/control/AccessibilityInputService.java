@@ -1498,6 +1498,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
             getImeDpad();
         }
 
+        public void silencePromptForImeDpadAssist() {
+            allowPromptForImeDpadAssist = false;
+        }
+
         public void showDebugOverlay() {
             if (debugOverlay != null) return;
             debugOverlay = new DebugOverlay(AccessibilityInputService.this);

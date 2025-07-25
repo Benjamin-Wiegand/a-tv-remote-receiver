@@ -1,10 +1,12 @@
 package io.benwiegand.atvremote.receiver.ui.test;
 
 
+import android.content.ComponentName;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
+import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
 import android.view.View;
@@ -26,9 +28,11 @@ import java.util.function.Function;
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.async.PendingSec;
 import io.benwiegand.atvremote.receiver.async.SecAdapter;
+import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
 import io.benwiegand.atvremote.receiver.control.ControlHandler;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 
 public class InputTestActivity extends FragmentActivity {
     private static final String TAG = InputTestActivity.class.getSimpleName();
@@ -54,6 +58,8 @@ public class InputTestActivity extends FragmentActivity {
     private LinearLayout textContainer;
 
     private ControlSourceConnector controlSourceConnector;
+    private AccessibilityInputService.AccessibilityInputHandler accessibilityBinder = null;
+    private final MakeshiftServiceConnection accessibilityServiceConnection = new AccessibilityServiceConnection();
 
     private record Test(String testName, PendingSec<Boolean> pendingSec) { }
 
@@ -112,6 +118,8 @@ public class InputTestActivity extends FragmentActivity {
 
         controlSourceConnector = new ControlSourceConnector(this, b -> {});
 
+        MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), accessibilityServiceConnection);
+
         root = new FrameLayout(this);
         setContentView(root);
 
@@ -143,6 +151,7 @@ public class InputTestActivity extends FragmentActivity {
                 .ifPresent(ViewNavigationCompatibilityTest::cancelTest);
 
         controlSourceConnector.destroy();
+        accessibilityServiceConnection.destroy();
     }
 
     private void startNextTest() {
@@ -244,4 +253,24 @@ public class InputTestActivity extends FragmentActivity {
         });
     }
 
+    private Optional<AccessibilityInputService.AccessibilityInputHandler> getAccessibilityBinder() {
+        return Optional.ofNullable(accessibilityBinder);
+    }
+
+    public class AccessibilityServiceConnection extends MakeshiftServiceConnection {
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG, "accessibility service connected");
+            accessibilityBinder = (AccessibilityInputService.AccessibilityInputHandler) service;
+
+            // if the user hasn't already granted this, it's not going to be granted during the test. also it interferes with the test.
+            ((AccessibilityInputService.AccessibilityInputHandler) service).silencePromptForImeDpadAssist();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG, "accessibility service disconnected");
+            accessibilityBinder = null;
+        }
+    }
 }
