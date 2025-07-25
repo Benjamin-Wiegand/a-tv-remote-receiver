@@ -195,9 +195,11 @@ public class ImeFocusBugTest extends ViewNavigationCompatibilityTest {
                     });
                 }
 
-                for (int i = 0; i < CLICK_COUNT; i++) {
-                    directionalPadInput.dpadDown(KeyEventType.CLICK);
-                }
+                new Thread(() -> {
+                    for (int i = 0; i < CLICK_COUNT; i++) {
+                        directionalPadInput.dpadDown(KeyEventType.CLICK);
+                    }
+                }).start();
 
                 boolean started = handler.postDelayed(() -> {
                     active.set(false);

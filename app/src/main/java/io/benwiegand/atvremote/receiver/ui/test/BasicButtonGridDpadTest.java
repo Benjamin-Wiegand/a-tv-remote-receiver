@@ -204,10 +204,12 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
 
                 // inputs
                 Consumer<KeyEventType> dpadMethod = direction.getMethodCall(directionalPadInput);
-                for (int i = 0; i < amount; i++) {
-                    dpadMethod.accept(withDownUp ? KeyEventType.DOWN : KeyEventType.CLICK);
-                }
-                if (withDownUp) dpadMethod.accept(KeyEventType.UP);
+                new Thread(() -> {
+                    for (int i = 0; i < amount; i++) {
+                        dpadMethod.accept(withDownUp ? KeyEventType.DOWN : KeyEventType.CLICK);
+                    }
+                    if (withDownUp) dpadMethod.accept(KeyEventType.UP);
+                }).start();
 
                 // wait until everything has settled
                 boolean started = handler.postDelayed(() -> {
@@ -284,20 +286,24 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
                     });
                 }
 
-                if (longPress && withDownUp) {
-                    directionalPadInput.dpadSelect(KeyEventType.DOWN);
-                    handler.postDelayed(() -> {
+                new Thread(() -> {
+                    if (longPress && withDownUp) {
+                        directionalPadInput.dpadSelect(KeyEventType.DOWN);
+                        handler.postDelayed(() -> {
+                            new Thread(() -> {
+                                directionalPadInput.dpadSelect(KeyEventType.DOWN);
+                                directionalPadInput.dpadSelect(KeyEventType.UP);
+                            }).start();
+                        }, 1000);
+                    } else if (!longPress && withDownUp) {
                         directionalPadInput.dpadSelect(KeyEventType.DOWN);
                         directionalPadInput.dpadSelect(KeyEventType.UP);
-                        }, 1000);
-                } else if (!longPress && withDownUp) {
-                    directionalPadInput.dpadSelect(KeyEventType.DOWN);
-                    directionalPadInput.dpadSelect(KeyEventType.UP);
-                } else if (longPress) {
-                    directionalPadInput.dpadLongPress();
-                } else {
-                    directionalPadInput.dpadSelect(KeyEventType.CLICK);
-                }
+                    } else if (longPress) {
+                        directionalPadInput.dpadLongPress();
+                    } else {
+                        directionalPadInput.dpadSelect(KeyEventType.CLICK);
+                    }
+                }).start();
 
                 // wait until everything has settled
                 long delay = NAVIGATION_VALID_AFTER;
