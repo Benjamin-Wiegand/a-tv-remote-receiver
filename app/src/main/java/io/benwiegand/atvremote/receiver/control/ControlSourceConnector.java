@@ -5,9 +5,11 @@ import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
 import android.os.IBinder;
+import android.os.SystemClock;
 import android.util.Log;
 
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.BackNavigationInput;
@@ -110,6 +112,8 @@ public class ControlSourceConnector implements Destroyable {
                 accessibilityPowerInput = binder.getPowerInput();
 
                 accessibilityOverlayOutput = binder.getOverlayOutput();
+
+                inputLock.notifyAll();
             }
 
             onBind.accept(binder);
@@ -148,6 +152,8 @@ public class ControlSourceConnector implements Destroyable {
                 imeVolumeInput = binder.getVolumeInput();
                 imeKeyboardInput = binder.getKeyboardInput();
                 imeMediaInput = binder.getMediaInput();
+
+                inputLock.notifyAll();
             }
 
             onBind.accept(binder);
@@ -192,6 +198,8 @@ public class ControlSourceConnector implements Destroyable {
 
             synchronized (inputLock) {
                 notificationListenerMediaInput = binder.getMediaInput();
+
+                inputLock.notifyAll();
             }
 
             onBind.accept(binder);
@@ -217,6 +225,37 @@ public class ControlSourceConnector implements Destroyable {
                 refreshNotificationInputServiceConnectionLocked();
             }
         }
+    }
+
+    /**
+     * <p>
+     *     waits with a timeout for the specified getter to return a non-null value, then returns said value.
+     *     the return value is checked every time the available control handlers are updated.
+     * </p>
+     * <p>
+     *     the getter should be provided as a method reference. I'm not making 16 more boilerplate methods.
+     * </p>
+     * @param getter the getter to check (should be specified with a method reference like <pre>ControlSourceConnector::getSomeInput</pre>)
+     * @param timeout maximum number of milliseconds to wait
+     * @return the control handler, or null if it didn't connect before the timeout
+     * @param <T> the type of control handler
+     * @throws InterruptedException if the thread was interrupted while waiting
+     */
+    public <T extends ControlHandler> T waitForControl(Function<ControlSourceConnector, T> getter, long timeout) throws InterruptedException {
+        T controlHandler = getter.apply(this);
+        if (controlHandler != null) return controlHandler;
+
+        long timeoutAt = SystemClock.elapsedRealtime() + timeout;
+        synchronized (inputLock) {
+            while ((controlHandler = getter.apply(this)) == null) {
+                long timeRemaining = timeoutAt - SystemClock.elapsedRealtime();
+                if (timeRemaining < 1) break;
+                inputLock.wait(timeRemaining);
+            }
+
+            return controlHandler;
+        }
+
     }
 
     public ActivityLauncherInput getAccessibilityActivityLauncherInput() {
