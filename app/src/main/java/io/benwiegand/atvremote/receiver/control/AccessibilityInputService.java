@@ -382,6 +382,22 @@ public class AccessibilityInputService extends AccessibilityService implements M
     }
 
     /**
+     * traverses ancestors until criteria is met
+     * @param node node to start at
+     * @param criteria function, provided with the node, should return true if accepted
+     * @return first node to match the criteria, or null if none do
+     */
+    private AccessibilityNodeInfo traverseNodeAncestors(AccessibilityNodeInfo node, Function<AccessibilityNodeInfo, Boolean> criteria) {
+        if (node == null) return null;
+
+        while ((node = node.getParent()) != null) {
+            if (criteria.apply(node)) return node;
+        }
+
+        return null;
+    }
+
+    /**
      * @return the window currently with focus, the topmost window, or null if there are no windows
      */
     private AccessibilityWindowInfo findFocusedWindow() {
@@ -780,6 +796,11 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
             if (newFocus == null) {
                 Log.w(TAG, "fake dpad focus search failed");
+
+                // scroll in that direction instead
+                if (oldFocus.node() != null && scrollAncestorInDirection(oldFocus.node(), direction))
+                    Log.v(TAG, "scrolled instead");
+
             } else {
                 if (newFocus.type() == FakeDpadFocus.Type.FAKE_FOCUS) {
                     boolean upgraded = false;
@@ -851,6 +872,28 @@ public class AccessibilityInputService extends AccessibilityService implements M
         debugShowMatchingNodes();
         debugDrawRect(DEBUG_OVERLAY_OLD_FOCUS, oldFocus.node(), DEBUG_OVERLAY_OLD_FOCUS_COLOR);
         debugDrawRect(DEBUG_OVERLAY_NEW_FOCUS, newFocus != null ? newFocus.node() : null, DEBUG_OVERLAY_NEW_FOCUS_COLOR);
+    }
+
+    /**
+     * scrolls in the specified direction from the context of the provided node
+     * @param node a node nested within a scrollable node to scroll. this node itself won't be scrolled
+     * @param direction direction to scroll in View.FOCUS_(direction) constants
+     * @return false if no scrollable node was found or the action returned false
+     */
+    private boolean scrollAncestorInDirection(AccessibilityNodeInfo node, int direction) {
+        int action = switch (direction) {
+            case View.FOCUS_UP -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_UP.getId();
+            case View.FOCUS_DOWN -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_DOWN.getId();
+            case View.FOCUS_LEFT -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_LEFT.getId();
+            case View.FOCUS_RIGHT -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_RIGHT.getId();
+            case View.FOCUS_FORWARD -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_FORWARD.getId();
+            case View.FOCUS_BACKWARD -> AccessibilityNodeInfo.AccessibilityAction.ACTION_SCROLL_BACKWARD.getId();
+            default -> throw new IllegalArgumentException("not a View focus direction: " + direction);
+        };
+
+        AccessibilityNodeInfo scrollableNode = traverseNodeAncestors(node, AccessibilityNodeInfo::isScrollable);
+        if (scrollableNode == null) return false;
+        return scrollableNode.performAction(action);
     }
 
     private void fakeDpadSelect() {
