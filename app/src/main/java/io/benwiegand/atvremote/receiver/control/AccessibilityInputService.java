@@ -1506,6 +1506,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         public void setShowMatchingDebugNodesCondition(NodeCondition condition) {
             Log.i(TAG, "debug overlay showing nodes matching criteria: " + condition);
+            if (condition == NodeCondition.NONE) {
+                debugShowMatchingNodesCondition = null;
+                return;
+            }
             debugShowMatchingNodesCondition = condition;
         }
 
@@ -1554,7 +1558,9 @@ public class AccessibilityInputService extends AccessibilityService implements M
         }
     }
 
+    // currently used for debugging
     public enum NodeCondition {
+        NONE,
         CLICKABLE,
         FOCUSABLE,
         ENABLED,
@@ -1566,6 +1572,7 @@ public class AccessibilityInputService extends AccessibilityService implements M
 
         private Function<AccessibilityNodeInfo, Boolean> createCriteria() {
             return switch (this) {
+                case NONE -> n -> false;
                 case CLICKABLE -> AccessibilityNodeInfo::isClickable;
                 case FOCUSABLE -> AccessibilityNodeInfo::isFocusable;
                 case ENABLED -> AccessibilityNodeInfo::isEnabled;
