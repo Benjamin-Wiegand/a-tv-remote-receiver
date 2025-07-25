@@ -31,6 +31,13 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
      */
     private static final long NAVIGATION_VALID_AFTER = 700;
 
+    /**
+     * workaround for fake dpad cache being slightly behind when rapidly going through the test,
+     * causing it to focus the wrong view sometimes. it only seems to happen on some devices.
+     * this is the number of milliseconds to wait after resetting the focus and before performing inputs
+     */
+    private static final long FOCUS_RESET_DELAY = 300;
+
     private ViewGrid viewGrid = null;
     private final DirectionalPadInput directionalPadInput;
 
@@ -205,6 +212,13 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
                 // inputs
                 Consumer<KeyEventType> dpadMethod = direction.getMethodCall(directionalPadInput);
                 new Thread(() -> {
+                    try {
+                        Thread.sleep(FOCUS_RESET_DELAY);
+                    } catch (InterruptedException e) {
+                        Log.d(TAG, "interrupted", e);
+                        return;
+                    }
+
                     for (int i = 0; i < amount; i++) {
                         dpadMethod.accept(withDownUp ? KeyEventType.DOWN : KeyEventType.CLICK);
                     }
@@ -216,7 +230,7 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
                     active.set(false);
                     boolean result = passCondition.get() && !failCondition.get();
                     secAdapter.provideResult(result);
-                }, NAVIGATION_VALID_AFTER);
+                }, NAVIGATION_VALID_AFTER + FOCUS_RESET_DELAY);
                 if (!started) throw new RejectedExecutionException("handler is dead");
 
             } catch (RuntimeException e) {
@@ -287,6 +301,13 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
                 }
 
                 new Thread(() -> {
+                    try {
+                        Thread.sleep(FOCUS_RESET_DELAY);
+                    } catch (InterruptedException e) {
+                        Log.d(TAG, "interrupted", e);
+                        return;
+                    }
+
                     if (longPress && withDownUp) {
                         directionalPadInput.dpadSelect(KeyEventType.DOWN);
                         handler.postDelayed(() -> {
@@ -306,7 +327,7 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
                 }).start();
 
                 // wait until everything has settled
-                long delay = NAVIGATION_VALID_AFTER;
+                long delay = NAVIGATION_VALID_AFTER + FOCUS_RESET_DELAY;
                 if (longPress && withDownUp) delay += 1000; // wait for long press too
                 boolean started = handler.postDelayed(() -> {
                     active.set(false);
