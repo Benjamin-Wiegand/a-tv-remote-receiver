@@ -94,6 +94,14 @@ public class InputTestActivity extends FragmentActivity {
                 "Accessibility assisted IME DPAD - IME focus bug test",
                 getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
                         .flatMap(this::imeFocusBugTest)));
+
+        // the accessibility dpad gets trapped in text boxes on some devices, which can be annoying for the user
+        // if this is a case, a fix is needed. todo: that fix hasn't been implemented yet
+        tests.add(new Test(
+                "Accessibility DPAD - text editor trap bug test",
+                getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
+                        .flatMap(this::textViewTrapTest)));
+
     }
 
     @Override
@@ -218,5 +226,20 @@ public class InputTestActivity extends FragmentActivity {
         });
     }
 
+    private PendingSec<Boolean> textViewTrapTest(DirectionalPadInput directionalPadInput) {
+        return SecAdapter.create(handler, secAdapter -> {
+            try {
+                DpadTextTrapBugTest test = new DpadTextTrapBugTest(
+                        testContainer,
+                        FRAME_LAYOUT_MATCH_PARENT,
+                        secAdapter::provideResult,
+                        directionalPadInput);
+                test.startTest();
+                activeTest = test;
+            } catch (RuntimeException e) {
+                secAdapter.throwError(e);
+            }
+        });
+    }
 
 }
