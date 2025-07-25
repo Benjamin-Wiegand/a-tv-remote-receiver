@@ -47,6 +47,14 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
         return 7;
     }
 
+    protected ViewGrid.Entry getStartingFocusView() {
+        return viewGrid.getCenter();
+    }
+
+    protected ViewGrid getViewGrid() {
+        return viewGrid;
+    }
+
     @Override
     protected void setupViews() {
         int rows = gridHeight(), cols = gridWidth();
@@ -77,26 +85,31 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
 
     @Override
     protected boolean initFocus() {
-        View center = viewGrid.getCenter();
+        View view = getStartingFocusView().view();
         if (root.isInTouchMode()) {
             Log.d(TAG, "touch mode active!");
             directionalPadInput.dpadDown(KeyEventType.CLICK);
         }
-        return center.requestFocus() && center.hasFocus();
+        return view.requestFocus() && view.hasFocus();
+    }
+
+    protected List<PendingSec<Boolean>> getTestList() {
+        return List.of(
+                testDirection(viewGrid.getCenter(), DpadTestUtil.DpadDirection.DPAD_RIGHT, 2, true),
+                testDirection(viewGrid.getCenter(), DpadTestUtil.DpadDirection.DPAD_LEFT, 1, true),
+                testDirection(viewGrid.getCenter(), DpadTestUtil.DpadDirection.DPAD_UP, 2, false),
+                testDirection(viewGrid.getCenter(), DpadTestUtil.DpadDirection.DPAD_DOWN, 1, false),
+                testClick(viewGrid.getCenter(), false, true),
+                testClick(viewGrid.getCenter(), true, true),
+                testClick(viewGrid.getCenter(), false, false),
+                testClick(viewGrid.getCenter(), true, false)
+        );
     }
 
     @Override
     protected void beginTest() {
-        List<PendingSec<Boolean>> tests = List.of(
-                testDirection(DpadTestUtil.DpadDirection.DPAD_RIGHT, 2, true),
-                testDirection(DpadTestUtil.DpadDirection.DPAD_LEFT, 1, true),
-                testDirection(DpadTestUtil.DpadDirection.DPAD_UP, 2, false),
-                testDirection(DpadTestUtil.DpadDirection.DPAD_DOWN, 1, false),
-                testClick(false, true),
-                testClick(true, true),
-                testClick(false, false),
-                testClick(true, false)
-        );
+        List<PendingSec<Boolean>> tests = getTestList();
+
         handler.post(() -> {
 
             // run all the tests in series
@@ -118,15 +131,15 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
         });
     }
 
-    private void resetFocus() {
-        View center = viewGrid.getCenter();
-        if (!center.hasFocus() && !center.requestFocus()) {
+    private void resetFocus(ViewGrid.Entry focusTarget) {
+        View view = focusTarget.view();
+        if (!view.hasFocus() && !view.requestFocus()) {
             Log.wtf(TAG,"focus initialization failed!");
-            throw new RuntimeException("failed to focus center view. was the screen touched?");
+            throw new RuntimeException("failed to focus starting view. was the screen touched?");
         }
     }
 
-    private PendingSec<Boolean> testDirection(DpadTestUtil.DpadDirection direction, int amount, boolean withDownUp) {
+    protected PendingSec<Boolean> testDirection(ViewGrid.Entry startViewEntry, DpadTestUtil.DpadDirection direction, int amount, boolean withDownUp) {
         return SecAdapter.create(handler, secAdapter -> {
             try {
                 AtomicBoolean failCondition = new AtomicBoolean(false);
@@ -137,11 +150,11 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
 
                 Log.v(TAG, "testing " + direction + " x" + amount + " " + (withDownUp ? "(full DOWN/UP)" : "(CLICK)"));
 
-                resetFocus();
+                resetFocus(startViewEntry);
 
                 // determine path to be navigated
                 for (int i = 0; i < amount; i++) {
-                    targetViews[i] = viewGrid.getOffsetFromCenter(direction, i + 1);
+                    targetViews[i] = viewGrid.getOffsetFromEntry(startViewEntry, direction, i + 1).view();
                 }
 
                 // fail by default
@@ -211,17 +224,18 @@ public class BasicButtonGridDpadTest extends ViewNavigationCompatibilityTest {
 
     }
 
-    private PendingSec<Boolean> testClick(boolean longPress, boolean withDownUp) {
+    protected PendingSec<Boolean> testClick(ViewGrid.Entry targetViewEntry, boolean longPress, boolean withDownUp) {
         return SecAdapter.create(handler, secAdapter -> {
             try {
                 AtomicBoolean failCondition = new AtomicBoolean(false);
                 AtomicBoolean passCondition = new AtomicBoolean(false);
                 AtomicBoolean active = new AtomicBoolean(true);
-                View targetView = viewGrid.getCenter();
+
+                View targetView = targetViewEntry.view();
 
                 Log.v(TAG, "testing dpad select " + (withDownUp ? "(full DOWN/UP)" : "(CLICK)"));
 
-                resetFocus();
+                resetFocus(targetViewEntry);
 
                 // fail by default
                 viewGrid.forEach(entry -> {

@@ -18,33 +18,37 @@ public record ViewGrid(View rootView, View[][] grid) {
         return grid[0].length;
     }
 
-    public View get(int col, int row) {
-        return grid[row][col];
+    public Entry get(int col, int row) {
+        return new Entry(col, row, grid[row][col]);
     }
 
-    public View getOffsetFromCenter(int colOffset, int rowOffset) {
+    public void set(int col, int row, View view) {
+        grid[row][col] = view;
+    }
+
+    public Entry getOffsetFromCenter(int colOffset, int rowOffset) {
         int rowCenter = rows() / 2;
         int colCenter = cols() / 2;
         return get(colCenter + colOffset, rowCenter + rowOffset);
     }
 
-    public View getOffsetFromCenter(DpadTestUtil.DpadDirection direction, int amount) {
+    public Entry getOffsetFromEntry(Entry startViewEntry, DpadTestUtil.DpadDirection direction, int amount) {
         return switch (direction) {
-            case DPAD_UP -> getOffsetFromCenter(0, -amount);
-            case DPAD_DOWN -> getOffsetFromCenter(0, amount);
-            case DPAD_LEFT -> getOffsetFromCenter(-amount, 0);
-            case DPAD_RIGHT -> getOffsetFromCenter(amount, 0);
+            case DPAD_UP -> get(startViewEntry.col(), startViewEntry.row() - amount);
+            case DPAD_DOWN -> get(startViewEntry.col(), startViewEntry.row() + amount);
+            case DPAD_LEFT -> get(startViewEntry.col() - amount, startViewEntry.row());
+            case DPAD_RIGHT -> get(startViewEntry.col() + amount, startViewEntry.row());
         };
     }
 
-    public View getCenter() {
+    public Entry getCenter() {
         return getOffsetFromCenter(0, 0);
     }
 
     public void forEach(Function<Entry, Boolean> entryConsumer) {
         for (int r = 0; r < rows(); r++) {
             for (int c = 0; c < cols(); c++) {
-                if (!entryConsumer.apply(new Entry(c, r, get(c, r)))) {
+                if (!entryConsumer.apply(get(c, r))) {
                     return;
                 }
             }
