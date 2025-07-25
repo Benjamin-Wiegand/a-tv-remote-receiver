@@ -51,6 +51,10 @@ public class ImeFocusBugTest extends ViewNavigationCompatibilityTest {
 
     private static final long FOCUS_BUG_TEST_TIMEOUT = 700;
 
+    // the accessibility assisted ime dpad needs time to flush its state before it can perform accurately for this test
+    // it's an unfortunate limitation of the workaround used
+    private static final long TEST_DELAY_AFTER_FRAGMENT_SWITCH = 700;
+
     private final FragmentManager fragmentManager;
     private final DirectionalPadInput directionalPadInput;
 
@@ -141,6 +145,7 @@ public class ImeFocusBugTest extends ViewNavigationCompatibilityTest {
                 switchFragment(initialFragment),
 
                 switchFragment(testFragment),
+                PendingSec.createDelay(TEST_DELAY_AFTER_FRAGMENT_SWITCH).mapSec(v -> true),
                 testForFocusBug()
         );
         handler.post(() -> {
