@@ -97,10 +97,12 @@ public class InputTestActivity extends FragmentActivity {
 
         // the accessibility dpad gets trapped in text boxes on some devices, which can be annoying for the user
         // if this is a case, a fix is needed. todo: that fix hasn't been implemented yet
-        tests.add(new Test(
-                "Accessibility DPAD - text editor trap bug test",
-                getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
-                        .flatMap(this::textViewTrapTest)));
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            tests.add(new Test(
+                    "Accessibility DPAD - text editor trap bug test",
+                    getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
+                            .flatMap(this::textViewTrapTest)));
+        }
 
     }
 
