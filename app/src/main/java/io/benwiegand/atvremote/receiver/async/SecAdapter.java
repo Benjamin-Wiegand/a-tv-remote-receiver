@@ -3,6 +3,7 @@ package io.benwiegand.atvremote.receiver.async;
 import android.os.Handler;
 import android.util.Log;
 
+import java.util.concurrent.Executor;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Consumer;
 
@@ -25,34 +26,49 @@ public interface SecAdapter<T> {
 
     }
 
-    static <T> PendingSec<T> create(Handler handler, Consumer<SecAdapter<T>> deferredResult) {
+    private static Executor handlerAsExecutor(Handler handler) {
+        return runnable -> {
+            if (!handler.post(runnable))
+                throw new RejectedExecutionException("handler is dead");
+        };
+    }
+
+    static <T> PendingSec<T> create(Executor executor, Consumer<SecAdapter<T>> deferredResult) {
         return new PendingSec<>(() -> {
             Sec<T> sec = new Sec<>();
 
-            boolean started = handler.post(() -> {
-                SecAdapter<T> adapter = sec.createAdapter();
-                try {
-                    deferredResult.accept(adapter);
-                } catch (Throwable t) {
-                    // this situation should generally be avoided
-                    Log.wtf("SecAdapter", "deferred sec handler threw!", t);
+            try {
+                executor.execute(() -> {
+                    SecAdapter<T> adapter = sec.createAdapter();
                     try {
-                        // ensure sec at least gets finished
-                        if (!sec.isFinished()) adapter.throwError(t);
-                    } catch (Throwable ignored) {}
+                        deferredResult.accept(adapter);
+                    } catch (Throwable t) {
+                        // this situation should generally be avoided
+                        Log.wtf("SecAdapter", "deferred sec handler threw!", t);
+                        try {
+                            // ensure sec at least gets finished
+                            if (!sec.isFinished()) adapter.throwError(t);
+                        } catch (Throwable ignored) {}
 
-                    // this will crash the app anyway
-                    throw t;
-                }
-            });
+                        // this will crash the app anyway
+                        throw t;
+                    }
+                });
+            } catch (Throwable t) {
+                return Sec.premeditatedError(t);
+            }
 
-            if (!started) return Sec.premeditatedError(new RejectedExecutionException("handler is dead"));
             return sec;
         });
+
     }
 
-    static <T> PendingSec<T> createSimple(Handler handler, ThrowingSupplier<T> deferredResult) {
-        return create(handler, adapter -> {
+    static <T> PendingSec<T> create(Handler handler, Consumer<SecAdapter<T>> deferredResult) {
+        return create(handlerAsExecutor(handler), deferredResult);
+    }
+
+    static <T> PendingSec<T> createSimple(Executor executor, ThrowingSupplier<T> deferredResult) {
+        return create(executor, adapter -> {
             T result;
             try {
                 result = deferredResult.get();
@@ -62,5 +78,9 @@ public interface SecAdapter<T> {
             }
             adapter.provideResult(result);
         });
+    }
+
+    static <T> PendingSec<T> createSimple(Handler handler, ThrowingSupplier<T> deferredResult) {
+        return createSimple(handlerAsExecutor(handler), deferredResult);
     }
 }
