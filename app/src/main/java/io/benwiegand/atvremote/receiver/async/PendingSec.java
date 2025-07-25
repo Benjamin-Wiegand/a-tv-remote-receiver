@@ -1,5 +1,9 @@
 package io.benwiegand.atvremote.receiver.async;
 
+import android.os.Handler;
+import android.os.Looper;
+
+import java.util.concurrent.RejectedExecutionException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
@@ -42,6 +46,16 @@ public class PendingSec<T> {
 
     public <U> PendingSec<U> flatMap(Function<T, PendingSec<U>> mapping) {
         return flatMapSec(r -> mapping.apply(r).start());
+    }
+
+    public static PendingSec<Void> createDelay(long delay) {
+        return new PendingSec<>(() -> {
+            SecAdapter.SecWithAdapter<Void> secWithAdapter = SecAdapter.createThreadless();
+            boolean started = new Handler(Looper.getMainLooper())
+                    .postDelayed(() -> secWithAdapter.secAdapter().provideResult(null), delay);
+            if (!started) return Sec.premeditatedError(new RejectedExecutionException("main looper is dead"));
+            return secWithAdapter.sec();
+        });
     }
 
 }
