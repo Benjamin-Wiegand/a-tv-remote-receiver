@@ -15,7 +15,9 @@ import android.util.Log;
 
 import androidx.annotation.StringRes;
 
+import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
 import java.util.concurrent.Executor;
@@ -70,6 +72,8 @@ public class CompatibilityAutoDetectService extends Service {
     }
 
     private final Queue<Test<?>> inputCompatibilityTests = new LinkedList<>();
+
+    private final Map<Integer, Object> compatibilityTestResults = new HashMap<>();
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Executor redExecutor = r -> new Thread(r).start();
@@ -265,10 +269,15 @@ public class CompatibilityAutoDetectService extends Service {
             }
 
             Log.i(TAG, "starting test: " + test.name());
+            if (compatibilityTestResults.containsKey(test.id())) {
+                Log.w(TAG, "test result already present!");
+            }
             test.creator().apply(activity)
                     .start()
                     .doOnResult(result -> {
                         Log.i(TAG, "test finished with result: " + result);
+
+                        compatibilityTestResults.put(test.id(), result);
 
                         if (test.type.shouldShowLog()) {
                             assert result instanceof Boolean;
