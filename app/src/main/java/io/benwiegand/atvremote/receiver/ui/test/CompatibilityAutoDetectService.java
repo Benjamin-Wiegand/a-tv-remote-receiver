@@ -4,6 +4,7 @@ import static io.benwiegand.atvremote.receiver.util.UiUtil.FRAME_LAYOUT_MATCH_PA
 
 import android.app.Service;
 import android.content.ComponentName;
+import android.content.Context;
 import android.content.Intent;
 import android.os.Binder;
 import android.os.Build;
@@ -11,6 +12,8 @@ import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
 import android.util.Log;
+
+import androidx.annotation.StringRes;
 
 import java.util.LinkedList;
 import java.util.Optional;
@@ -20,6 +23,7 @@ import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
+import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.async.PendingSec;
 import io.benwiegand.atvremote.receiver.async.SecAdapter;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
@@ -55,10 +59,15 @@ public class CompatibilityAutoDetectService extends Service {
     }
 
     private record Test<T>(
+            int id,
             String name,
             TestType type,
             Function<InputTestActivity, PendingSec<T>> creator
-    ) {}
+    ) {
+        public Test(Context context, @StringRes int nameRes, TestType type, Function<InputTestActivity, PendingSec<T>> creator) {
+            this(nameRes, context.getString(nameRes), type, creator);
+        }
+    }
 
     private final Queue<Test<?>> inputCompatibilityTests = new LinkedList<>();
 
@@ -98,7 +107,7 @@ public class CompatibilityAutoDetectService extends Service {
 
         // some vendors seemingly break background ime context
         inputCompatibilityTests.add(new Test<>(
-                "IME DPAD - basic test", TestType.INPUT_NAVIGATION,
+                this, R.string.input_compatibility_test_ime_dpad_basic, TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
@@ -107,7 +116,7 @@ public class CompatibilityAutoDetectService extends Service {
         // in reality, if there's an issue with receiving ui updates as an accessibility service, this will break.
         // thankfully, there are no known cases of this yet.
         inputCompatibilityTests.add(new Test<>(
-                "Accessibility assisted IME DPAD - basic test", TestType.INPUT_NAVIGATION,
+                this, R.string.input_compatibility_test_accessibility_assisted_ime_dpad_basic, TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
@@ -115,7 +124,7 @@ public class CompatibilityAutoDetectService extends Service {
         // hours of work have made this not the worst thing ever
         // still doesn't work in many apps, but may be the only option for some older devices
         inputCompatibilityTests.add(new Test<>(
-                "Accessibility fake DPAD - basic test", TestType.INPUT_NAVIGATION,
+                this, R.string.input_compatibility_test_fake_dpad_basic, TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFakeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
@@ -123,7 +132,7 @@ public class CompatibilityAutoDetectService extends Service {
         // should be the best, but apparently not on some devices (see DpadTextTrapBugTest)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             inputCompatibilityTests.add(new Test<>(
-                    "Accessibility DPAD - basic test", TestType.INPUT_NAVIGATION,
+                    this, R.string.input_compatibility_test_accessibility_dpad_basic, TestType.INPUT_NAVIGATION,
                     activity -> getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
                             .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
             ));
@@ -132,7 +141,7 @@ public class CompatibilityAutoDetectService extends Service {
         // test focus bug that seems to happen on android 12 and below
         // makes apps like settings completely unusable without assistance
         inputCompatibilityTests.add(new Test<>(
-                "IME DPAD - IME focus bug test", TestType.INPUT_NAVIGATION,
+                this, R.string.input_compatibility_test_ime_dpad_focus_bug, TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createImeFocusBugTest(activity, directionalPadInput))
         ));
@@ -140,7 +149,7 @@ public class CompatibilityAutoDetectService extends Service {
         // verify that the assisted ime dpad is able to overcome the concern from the previous test
         // if it is unable to listen for UI changes or accurately detect when the ime bug happens, using it would be worse than using ime with the bug
         inputCompatibilityTests.add(new Test<>(
-                "Accessibility assisted IME DPAD - IME focus bug test", TestType.INPUT_NAVIGATION,
+                this, R.string.input_compatibility_test_accessibility_assisted_ime_dpad_focus_bug, TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createImeFocusBugTest(activity, directionalPadInput))
         ));
@@ -149,7 +158,7 @@ public class CompatibilityAutoDetectService extends Service {
         // if this is a case, a fix is needed. todo: that fix hasn't been implemented yet
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             inputCompatibilityTests.add(new Test<>(
-                    "Accessibility DPAD - text editor trap bug test", TestType.INPUT_NAVIGATION,
+                    this, R.string.input_compatibility_test_accessibility_dpad_text_editor_trap_bug, TestType.INPUT_NAVIGATION,
                     activity -> getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
                             .flatMap(directionalPadInput -> createDpadTextTrapBugTest(activity, directionalPadInput))
             ));
@@ -159,21 +168,21 @@ public class CompatibilityAutoDetectService extends Service {
     private void generateFeatureInputCompatibilityTestQueue() {
         // real android tv builds usually only have this on android <= 9
         inputCompatibilityTests.add(new Test<>(
-                "Overview button support", TestType.FEATURE_PRESENCE,
+                this, R.string.input_feature_compatibility_test_overview_button, TestType.FEATURE_PRESENCE,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
                         .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navRecent(KeyEventType.CLICK)))
         ));
 
         // some android tv vendors seem to break this?
         inputCompatibilityTests.add(new Test<>(
-                "Notification button support", TestType.FEATURE_PRESENCE,
+                this, R.string.input_feature_compatibility_test_notification_button, TestType.FEATURE_PRESENCE,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
                         .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navNotifications(KeyEventType.CLICK)))
         ));
 
         // real android tv builds usually don't support this
         inputCompatibilityTests.add(new Test<>(
-                "Quick settings shortcut support", TestType.FEATURE_PRESENCE,
+                this, R.string.input_feature_compatibility_test_quick_settings_action, TestType.FEATURE_PRESENCE,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
                         .flatMap(fullNavigationInput -> createMenuFeatureTest(fullNavigationInput::navQuickSettings))
         ));
@@ -181,7 +190,7 @@ public class CompatibilityAutoDetectService extends Service {
         // android tv 8 usually doesn't have this
         // in the future, this functionality can possibly be emulated
         inputCompatibilityTests.add(new Test<>(
-                "Home button shortcut support", TestType.FEATURE_PRESENCE,
+                this, R.string.input_feature_compatibility_test_home_button, TestType.FEATURE_PRESENCE,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
                         .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navHome(KeyEventType.CLICK)))
         ));
