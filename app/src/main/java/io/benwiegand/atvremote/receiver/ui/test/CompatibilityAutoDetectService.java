@@ -18,6 +18,7 @@ import java.util.Queue;
 import java.util.concurrent.Executor;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Function;
+import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.async.PendingSec;
 import io.benwiegand.atvremote.receiver.async.SecAdapter;
@@ -25,7 +26,9 @@ import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
 import io.benwiegand.atvremote.receiver.control.ControlHandler;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
+import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.ui.test.feature.MenuFeatureCompatibilityTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.BasicButtonGridDpadTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.DpadTextTrapBugTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.ImeFocusBugTest;
@@ -43,10 +46,11 @@ public class CompatibilityAutoDetectService extends Service {
     private Runnable cancelCurrentTest = () -> {};
 
     private enum TestType {
-        INPUT_NAVIGATION;
+        INPUT_NAVIGATION,
+        FEATURE_PRESENCE;
 
         public boolean shouldShowLog() {
-            return this == INPUT_NAVIGATION;
+            return this == INPUT_NAVIGATION || this == FEATURE_PRESENCE;
         }
     }
 
@@ -68,6 +72,7 @@ public class CompatibilityAutoDetectService extends Service {
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), accessibilityServiceConnection);
 
         generateInputCompatibilityTestQueue();
+        generateFeatureInputCompatibilityTestQueue();
 
         startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
@@ -143,6 +148,37 @@ public class CompatibilityAutoDetectService extends Service {
         }
     }
 
+    private void generateFeatureInputCompatibilityTestQueue() {
+        // real android tv builds usually only have this on android <= 9
+        inputCompatibilityTests.add(new Test<>(
+                "Overview button support", TestType.FEATURE_PRESENCE,
+                activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
+                        .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navRecent(KeyEventType.CLICK)))
+        ));
+
+        // some android tv vendors seem to break this?
+        inputCompatibilityTests.add(new Test<>(
+                "Notification button support", TestType.FEATURE_PRESENCE,
+                activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
+                        .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navNotifications(KeyEventType.CLICK)))
+        ));
+
+        // real android tv builds usually don't support this
+        inputCompatibilityTests.add(new Test<>(
+                "Quick settings shortcut support", TestType.FEATURE_PRESENCE,
+                activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
+                        .flatMap(fullNavigationInput -> createMenuFeatureTest(fullNavigationInput::navQuickSettings))
+        ));
+
+        // android tv 8 usually doesn't have this
+        // in the future, this functionality can possibly be emulated
+        inputCompatibilityTests.add(new Test<>(
+                "Home button shortcut support", TestType.FEATURE_PRESENCE,
+                activity -> getControlHandler(ControlSourceConnector::getAccessibilityFullNavigationInput)
+                        .flatMap(fullNavigationInput -> createMenuFeatureTest(() -> fullNavigationInput.navHome(KeyEventType.CLICK)))
+        ));
+    }
+
     private PendingSec<Boolean> createBasicButtonGridDpadTest(InputTestActivity activity, DirectionalPadInput directionalPadInput) {
         return SecAdapter.create(handler, secAdapter -> {
             BasicButtonGridDpadTest test = new BasicButtonGridDpadTest(
@@ -175,6 +211,19 @@ public class CompatibilityAutoDetectService extends Service {
                     FRAME_LAYOUT_MATCH_PARENT,
                     secAdapter::provideResult,
                     directionalPadInput);
+            test.startTest();
+            cancelCurrentTest = test::cancelTest;
+        });
+    }
+
+    private PendingSec<Boolean> createMenuFeatureTest(Runnable openMenu) {
+        return SecAdapter.create(handler, secAdapter -> {
+            MenuFeatureCompatibilityTest test = new MenuFeatureCompatibilityTest(
+                    secAdapter::provideResult,
+                    getAccessibilityBinder()
+                            .map(b -> (Supplier<Integer>) b::getUiUpdateSerial)
+                            .orElseThrow(),
+                    openMenu);
             test.startTest();
             cancelCurrentTest = test::cancelTest;
         });
