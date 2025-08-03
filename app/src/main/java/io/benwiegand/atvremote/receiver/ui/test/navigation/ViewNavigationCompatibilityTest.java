@@ -4,12 +4,13 @@ import android.content.Context;
 import android.content.res.ColorStateList;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 
-public abstract class ViewNavigationCompatibilityTest {
+import io.benwiegand.atvremote.receiver.ui.test.CompatibilityTest;
+
+public abstract class ViewNavigationCompatibilityTest extends CompatibilityTest {
     private final String TAG = getLogTag();
 
     protected static final int[] PRESSED_STATE_SET = new int[] {android.R.attr.state_pressed};
@@ -38,41 +39,18 @@ public abstract class ViewNavigationCompatibilityTest {
     protected final Handler handler = new Handler(Looper.getMainLooper());
     protected final ViewGroup root;
     protected final ViewGroup.LayoutParams rootLayoutParams;
-    protected final Callback callback;
 
-    private long testStartedAt = 0;
     private int initFocusAttempts = 0;
 
-    private final Object resultLock = new Object();
-    private boolean finished = false;
-    private boolean pass = false;
-
     public ViewNavigationCompatibilityTest(ViewGroup root, ViewGroup.LayoutParams rootLayoutParams, Callback callback) {
+        super(callback);
         this.root = root;
         this.rootLayoutParams = rootLayoutParams;
-        this.callback = callback;
     }
 
-    public interface Callback {
-        void onFinished(boolean pass);
-    }
-
-    public void cancelTest() {
-        synchronized (resultLock) {
-            if (finished) {
-                Log.e(TAG, "cannot cancel test: it's already over");
-                return;
-            }
-            finished = true;
-            Log.i(TAG, "test cancelled:\n- pass = " + pass + "\n- elapsed ms = " + getElapsedTime());
-        }
-
-        callback.onFinished(pass);
-    }
-
+    @Override
     public void startTest() {
-        testStartedAt = SystemClock.elapsedRealtime();
-        Log.v(TAG, "test starting");
+        super.startTest();
 
         Log.i(TAG, "running view setup");
         setupViews();
@@ -84,7 +62,7 @@ public abstract class ViewNavigationCompatibilityTest {
         if (initFocusAttempts++ >= INIT_FOCUS_MAX_ATTEMPTS) {
             Log.e(TAG, "focus init failed, retry attempts exhausted");
             setResult(false);
-            Log.i(TAG, "test init failure:\n- pass = " + pass + "\n- elapsed ms = " + getElapsedTime());
+            Log.i(TAG, "test init failure:\n- pass = " + isPass() + "\n- elapsed ms = " + getElapsedTime());
             return;
         }
 
@@ -109,23 +87,6 @@ public abstract class ViewNavigationCompatibilityTest {
 
     protected abstract void beginTest();
 
-    protected abstract String getLogTag();
-
-    protected void setResult(boolean pass) {
-        synchronized (resultLock) {
-            if (finished) {
-                Log.e(TAG, "test result came after test already over");
-                return;
-            }
-
-            this.pass = pass;
-            finished = true;
-
-            Log.i(TAG, "test completion:\n- pass = " + pass + "\n- elapsed ms = " + getElapsedTime());
-        }
-
-        callback.onFinished(pass);
-    }
 
     protected void addToRoot(View view) {
         root.addView(view, rootLayoutParams);
@@ -135,7 +96,4 @@ public abstract class ViewNavigationCompatibilityTest {
         return root.getContext();
     }
 
-    protected long getElapsedTime() {
-        return SystemClock.elapsedRealtime() - testStartedAt;
-    }
 }
