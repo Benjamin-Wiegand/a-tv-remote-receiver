@@ -11,6 +11,7 @@ import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
 import android.os.Looper;
+import android.provider.Settings;
 import android.util.Log;
 
 import androidx.annotation.StringRes;
@@ -34,6 +35,7 @@ import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.ui.MakeshiftActivity;
 import io.benwiegand.atvremote.receiver.ui.test.feature.MenuFeatureCompatibilityTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.BasicButtonGridDpadTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.DpadTextTrapBugTest;
@@ -75,6 +77,8 @@ public class CompatibilityAutoDetectService extends Service {
 
     private final Map<Integer, Object> compatibilityTestResults = new HashMap<>();
 
+    private CompatibilityTestProgressOverlay testProgressOverlay = null;
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Executor redExecutor = r -> new Thread(r).start();
 
@@ -87,6 +91,14 @@ public class CompatibilityAutoDetectService extends Service {
         generateInputCompatibilityTestQueue();
         generateFeatureInputCompatibilityTestQueue();
 
+        if (Settings.canDrawOverlays(getApplicationContext())) {
+            testProgressOverlay = new CompatibilityTestProgressOverlay(getApplicationContext(), MakeshiftActivity.OverlayMode.APPLICATION_OVERLAY);
+            testProgressOverlay.show();
+        } else {
+            // todo: test should wait for accessibility connection
+        }
+
+
         startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
     }
@@ -98,11 +110,16 @@ public class CompatibilityAutoDetectService extends Service {
         cancelCurrentTest.run();
         controlSourceConnector.destroy();
         accessibilityServiceConnection.destroy();
+        getTestProgressOverlay().ifPresent(MakeshiftActivity::destroy);
     }
 
     @Override
     public IBinder onBind(Intent intent) {
         return binder;
+    }
+
+    private Optional<CompatibilityTestProgressOverlay> getTestProgressOverlay() {
+        return Optional.ofNullable(testProgressOverlay);
     }
 
     private void generateInputCompatibilityTestQueue() {
@@ -281,7 +298,8 @@ public class CompatibilityAutoDetectService extends Service {
 
                         if (test.type.shouldShowLog()) {
                             assert result instanceof Boolean;
-                            activity.logTestResultOnscreen(test.name(), (boolean) result);
+                            getTestProgressOverlay()
+                                    .ifPresent(overlay -> overlay.logTestResult(test.name(), (boolean) result));
                         }
 
                         activity.resetForNextTest();
@@ -290,7 +308,8 @@ public class CompatibilityAutoDetectService extends Service {
                         Log.e(TAG, "test failed, exception thrown", t);
 
                         if (test.type.shouldShowLog()) {
-                            activity.logTestResultOnscreen(test.name(), false);
+                            getTestProgressOverlay()
+                                    .ifPresent(overlay -> overlay.logTestResult(test.name(), false));
                         }
 
                         activity.resetForNextTest();
@@ -311,7 +330,12 @@ public class CompatibilityAutoDetectService extends Service {
             accessibilityBinder = (AccessibilityInputService.AccessibilityInputHandler) service;
 
             // if the user hasn't already granted this, it's not going to be granted during the test. also it interferes with the test.
-            ((AccessibilityInputService.AccessibilityInputHandler) service).silencePromptForImeDpadAssist();
+            accessibilityBinder.silencePromptForImeDpadAssist();
+
+            if (testProgressOverlay == null) {
+                testProgressOverlay = new CompatibilityTestProgressOverlay(accessibilityBinder.getService(), MakeshiftActivity.OverlayMode.ACCESSIBILITY_OVERLAY);
+                testProgressOverlay.start();
+            }
         }
 
         @Override

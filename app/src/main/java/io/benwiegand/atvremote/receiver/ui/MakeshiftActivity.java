@@ -13,6 +13,18 @@ import androidx.annotation.LayoutRes;
 public abstract class MakeshiftActivity {
     private static final String TAG = MakeshiftActivity.class.getSimpleName();
 
+    public enum OverlayMode {
+        ACCESSIBILITY_OVERLAY,
+        APPLICATION_OVERLAY;
+
+        public int toLayoutParamsType() {
+            return switch (this) {
+                case ACCESSIBILITY_OVERLAY -> WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY;
+                case APPLICATION_OVERLAY -> WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY;
+            };
+        }
+    }
+
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Context context;
     private final WindowManager wm;

@@ -25,16 +25,8 @@ import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConn
 public class InputTestActivity extends FragmentActivity {
     private static final String TAG = InputTestActivity.class.getSimpleName();
 
-    /**
-     *  sits over text layer
-     */
-    private static final float TEST_CONTAINER_ALPHA = 0.3f;
-
-    private static final float TEST_IN_PROGRESS_NOTICE_SIZE = 42;
-
     private FrameLayout root;
     private FrameLayout testContainer;
-    private LinearLayout textContainer;
 
     private final AutoDetectServiceConnection autoDetectServiceConnection = new AutoDetectServiceConnection();
     private CompatibilityAutoDetectService.ServiceBinder autoDetectServiceBinder = null;
@@ -53,18 +45,7 @@ public class InputTestActivity extends FragmentActivity {
         root = new FrameLayout(this);
         setContentView(root);
 
-        textContainer = new LinearLayout(this);
-        textContainer.setOrientation(LinearLayout.VERTICAL);
-        root.addView(textContainer, FRAME_LAYOUT_MATCH_PARENT);
-
-        TextView notice = new TextView(this);
-        notice.setText(R.string.input_compatibility_test_in_progress_text);
-        notice.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
-        notice.setTextSize(TEST_IN_PROGRESS_NOTICE_SIZE);
-        textContainer.addView(notice);
-
         testContainer = new FrameLayout(this);
-        testContainer.setAlpha(TEST_CONTAINER_ALPHA);
         root.addView(testContainer, FRAME_LAYOUT_MATCH_PARENT);
 
         readyForNextTest = true;
@@ -132,22 +113,6 @@ public class InputTestActivity extends FragmentActivity {
 
     public FrameLayout getTestContainer() {
         return testContainer;
-    }
-
-    public void logTestResultOnscreen(String testName, boolean pass) {
-        runOnUiThread(() -> {
-            TextView resultText = new TextView(this);
-            String passFailText;
-            if (pass) {
-                passFailText = getString(R.string.input_compatibility_test_pass_text);
-                resultText.setTextColor(Color.GREEN);
-            } else {
-                passFailText = getString(R.string.input_compatibility_test_fail_text);
-                resultText.setTextColor(Color.RED);
-            }
-            resultText.setText(testName + " - " + passFailText);
-            textContainer.addView(resultText);
-        });
     }
 
     private Optional<CompatibilityAutoDetectService.ServiceBinder> getAutoDetectServiceBinder() {

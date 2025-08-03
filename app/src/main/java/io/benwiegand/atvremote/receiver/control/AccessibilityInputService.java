@@ -1564,6 +1564,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
         public void onServerBind(ControlScheme controlScheme) {
             AccessibilityInputService.this.controlScheme = controlScheme;
         }
+
+        public AccessibilityInputService getService() {
+            return AccessibilityInputService.this;
+        }
     }
 
     // currently used for debugging
