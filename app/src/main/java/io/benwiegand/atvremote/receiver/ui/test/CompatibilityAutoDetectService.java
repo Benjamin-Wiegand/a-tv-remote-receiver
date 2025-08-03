@@ -65,6 +65,9 @@ public class CompatibilityAutoDetectService extends Service {
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), accessibilityServiceConnection);
 
         generateInputCompatibilityTestQueue();
+
+        startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK));
     }
 
     @Override

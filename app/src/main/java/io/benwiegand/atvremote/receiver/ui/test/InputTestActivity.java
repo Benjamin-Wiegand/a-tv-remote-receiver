@@ -69,8 +69,6 @@ public class InputTestActivity extends FragmentActivity {
 
         readyForNextTest = true;
 
-        //todo
-        startService(new Intent(this, CompatibilityAutoDetectService.class));
         boolean bindResult = bindService(new Intent(this, CompatibilityAutoDetectService.class), autoDetectServiceConnection, BIND_IMPORTANT);
         assert bindResult;
     }
@@ -107,16 +105,17 @@ public class InputTestActivity extends FragmentActivity {
     }
 
     public void resetForNextTest() {
+        runOnUiThread(() -> {
+            testContainer.removeAllViews();
+            readyForNextTest = true;
 
-        testContainer.removeAllViews();
-        readyForNextTest = true;
+            if (!isForeground()) {
+                startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
+            }
 
-        if (!isForeground()) {
-            startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
-                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
-        }
-
-        startNextTestIfReady();
+            startNextTestIfReady();
+        });
     }
 
     public void startNextTestIfReady() {
