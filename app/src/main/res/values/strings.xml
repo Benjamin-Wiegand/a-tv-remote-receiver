@@ -136,7 +136,7 @@
 
 
     <!-- input method compatibility auto-detection -->
-    <string name="input_compatibility_test_in_progress_text">testing compatibility…</string>
+    <string name="input_compatibility_test_in_progress_text">finding optimal compatibility settings, please wait…</string>
     <string name="input_compatibility_test_pass_text">PASS</string>
     <string name="input_compatibility_test_fail_text">FAIL</string>
 
