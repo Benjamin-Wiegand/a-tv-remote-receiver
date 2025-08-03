@@ -1,16 +1,15 @@
 package io.benwiegand.atvremote.receiver.ui.test;
 
 
+import static io.benwiegand.atvremote.receiver.util.UiUtil.FRAME_LAYOUT_MATCH_PARENT;
+
 import android.content.ComponentName;
+import android.content.Intent;
 import android.graphics.Color;
-import android.os.Build;
 import android.os.Bundle;
-import android.os.Handler;
 import android.os.IBinder;
-import android.os.Looper;
 import android.util.Log;
 import android.view.View;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -18,20 +17,9 @@ import android.widget.TextView;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.FragmentActivity;
 
-import java.util.LinkedList;
 import java.util.Optional;
-import java.util.Queue;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeoutException;
-import java.util.function.Function;
 
 import io.benwiegand.atvremote.receiver.R;
-import io.benwiegand.atvremote.receiver.async.PendingSec;
-import io.benwiegand.atvremote.receiver.async.SecAdapter;
-import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
-import io.benwiegand.atvremote.receiver.control.ControlHandler;
-import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
-import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 
 public class InputTestActivity extends FragmentActivity {
@@ -44,81 +32,23 @@ public class InputTestActivity extends FragmentActivity {
 
     private static final float TEST_IN_PROGRESS_NOTICE_SIZE = 42;
 
-    private static final long CONTROL_SOURCE_TIMEOUT = 2000;
-
-
-    private static final FrameLayout.LayoutParams FRAME_LAYOUT_MATCH_PARENT = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
-
-    private ViewNavigationCompatibilityTest activeTest = null;
-
-    private final Executor redExecutor = r -> new Thread(r).start();
-    private final Handler handler = new Handler(Looper.getMainLooper());
     private FrameLayout root;
     private FrameLayout testContainer;
     private LinearLayout textContainer;
 
-    private ControlSourceConnector controlSourceConnector;
-    private AccessibilityInputService.AccessibilityInputHandler accessibilityBinder = null;
-    private final MakeshiftServiceConnection accessibilityServiceConnection = new AccessibilityServiceConnection();
+    private final AutoDetectServiceConnection autoDetectServiceConnection = new AutoDetectServiceConnection();
+    private CompatibilityAutoDetectService.ServiceBinder autoDetectServiceBinder = null;
 
-    private record Test(String testName, PendingSec<Boolean> pendingSec) { }
+    private final Object lock = new Object();
+    private boolean readyForNextTest = false;
 
-    private final Queue<Test> tests = new LinkedList<>();
+    private boolean paused = false;
 
-    private void generateTestList() {
-
-        // basic test of all the dpads to see what works
-        tests.add(new Test(
-                "IME DPAD basic test",
-                getControlHandler(ControlSourceConnector::getImeDirectionalPadInput)
-                        .flatMap(this::basicDpadTest)));
-        tests.add(new Test(
-                "Accessibility assisted IME DPAD basic test",
-                getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
-                        .flatMap(this::basicDpadTest)));
-        tests.add(new Test(
-                "Accessibility fake DPAD basic test",
-                getControlHandler(ControlSourceConnector::getAccessibilityFakeDirectionalPadInput)
-                        .flatMap(this::basicDpadTest)));
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            tests.add(new Test(
-                    "Accessibility DPAD basic test",
-                    getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
-                            .flatMap(this::basicDpadTest)));
-        }
-
-        // test focus bug that seems to happen on android 12 and below
-        // makes apps like settings completely unusable without assistance
-        tests.add(new Test(
-                "IME DPAD - IME focus bug test",
-                getControlHandler(ControlSourceConnector::getImeDirectionalPadInput)
-                        .flatMap(this::imeFocusBugTest)));
-
-        // verify that the assisted ime dpad is able to overcome the concern from the previous test
-        // if it is unable to listen for UI changes or accurately detect when the ime bug happens, using it would be worse than using ime with the bug
-        tests.add(new Test(
-                "Accessibility assisted IME DPAD - IME focus bug test",
-                getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
-                        .flatMap(this::imeFocusBugTest)));
-
-        // the accessibility dpad gets trapped in text boxes on some devices, which can be annoying for the user
-        // if this is a case, a fix is needed. todo: that fix hasn't been implemented yet
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            tests.add(new Test(
-                    "Accessibility DPAD - text editor trap bug test",
-                    getControlHandler(ControlSourceConnector::getAccessibilityAccDirectionalPadInput)
-                            .flatMap(this::textViewTrapTest)));
-        }
-
-    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
+        Log.i(TAG, "onCreate()");
         super.onCreate(savedInstanceState);
-
-        controlSourceConnector = new ControlSourceConnector(this, b -> {});
-
-        MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), accessibilityServiceConnection);
 
         root = new FrameLayout(this);
         setContentView(root);
@@ -137,50 +67,75 @@ public class InputTestActivity extends FragmentActivity {
         testContainer.setAlpha(TEST_CONTAINER_ALPHA);
         root.addView(testContainer, FRAME_LAYOUT_MATCH_PARENT);
 
-        generateTestList();
+        readyForNextTest = true;
 
-        startNextTest();
-
+        //todo
+        startService(new Intent(this, CompatibilityAutoDetectService.class));
+        boolean bindResult = bindService(new Intent(this, CompatibilityAutoDetectService.class), autoDetectServiceConnection, BIND_IMPORTANT);
+        assert bindResult;
     }
 
     @Override
     protected void onDestroy() {
+        Log.i(TAG, "onDestroy()");
         super.onDestroy();
 
-        Optional.ofNullable(activeTest)
-                .ifPresent(ViewNavigationCompatibilityTest::cancelTest);
-
-        controlSourceConnector.destroy();
-        accessibilityServiceConnection.destroy();
+        try {
+            unbindService(autoDetectServiceConnection);
+        } catch (Throwable t) {
+            Log.wtf(TAG, "exception while unbinding compatibility auto detect service", t);
+        }
     }
 
-    private void startNextTest() {
+    @Override
+    protected void onResume() {
+        Log.i(TAG, "onResume()");
+        super.onResume();
+        paused = false;
+        startNextTestIfReady();
+    }
 
-        runOnUiThread(() -> testContainer.removeAllViews());
+    @Override
+    protected void onPause() {
+        Log.i(TAG, "onPause()");
+        super.onPause();
+        paused = true;
+    }
 
-        Test test = tests.poll();
-        if (test == null) {
-            Log.i(TAG, "no more tests");
-            return;
+    private boolean isForeground() {
+        return !paused && !isDestroyed() && !isFinishing();
+    }
+
+    public void resetForNextTest() {
+
+        testContainer.removeAllViews();
+        readyForNextTest = true;
+
+        if (!isForeground()) {
+            startActivity(new Intent(getApplicationContext(), InputTestActivity.class)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_REORDER_TO_FRONT));
         }
 
-        Log.i(TAG, "running test: " + test.testName());
-        test.pendingSec()
-                .start()
-                .doOnResult(pass -> {
-                    logTestResultOnscreen(test.testName(), pass);
-                    startNextTest();
-                })
-                .doOnError(t -> {
-                    Log.e(TAG, "failed to start test", t);
-                    logTestResultOnscreen(test.testName(), false);
-                    startNextTest();
-                })
-                .callMeWhenDone();
-
+        startNextTestIfReady();
     }
 
-    private void logTestResultOnscreen(String testName, boolean pass) {
+    public void startNextTestIfReady() {
+        synchronized (lock) {
+            if (readyForNextTest && isForeground()) {
+                getAutoDetectServiceBinder().ifPresent(
+                        binder -> {
+                            readyForNextTest = false;
+                            binder.onInputTestActivityReady(InputTestActivity.this);
+                        });
+            }
+        }
+    }
+
+    public FrameLayout getTestContainer() {
+        return testContainer;
+    }
+
+    public void logTestResultOnscreen(String testName, boolean pass) {
         runOnUiThread(() -> {
             TextView resultText = new TextView(this);
             String passFailText;
@@ -196,81 +151,23 @@ public class InputTestActivity extends FragmentActivity {
         });
     }
 
-    private <T extends ControlHandler> PendingSec<T> getControlHandler(Function<ControlSourceConnector, T> getter) {
-        return SecAdapter.createSimple(redExecutor, () -> {
-            T controlHandler = controlSourceConnector.waitForControl(getter, InputTestActivity.CONTROL_SOURCE_TIMEOUT);
-            if (controlHandler == null) throw new TimeoutException("timed out waiting for control handler");
-            return controlHandler;
-        });
+    private Optional<CompatibilityAutoDetectService.ServiceBinder> getAutoDetectServiceBinder() {
+        return Optional.ofNullable(autoDetectServiceBinder);
     }
 
-    private PendingSec<Boolean> basicDpadTest(DirectionalPadInput directionalPadInput) {
-        return SecAdapter.create(handler, secAdapter -> {
-            try {
-                BasicButtonGridDpadTest test = new BasicButtonGridDpadTest(
-                        testContainer,
-                        FRAME_LAYOUT_MATCH_PARENT,
-                        secAdapter::provideResult,
-                        directionalPadInput);
-                test.startTest();
-                activeTest = test;
-            } catch (RuntimeException e) {
-                secAdapter.throwError(e);
-            }
-        });
-    }
-
-    private PendingSec<Boolean> imeFocusBugTest(DirectionalPadInput directionalPadInput) {
-        return SecAdapter.create(handler, secAdapter -> {
-            try {
-                ImeFocusBugTest test = new ImeFocusBugTest(
-                        testContainer,
-                        FRAME_LAYOUT_MATCH_PARENT,
-                        secAdapter::provideResult,
-                        getSupportFragmentManager(),
-                        directionalPadInput);
-                test.startTest();
-                activeTest = test;
-            } catch (RuntimeException e) {
-                secAdapter.throwError(e);
-            }
-        });
-    }
-
-    private PendingSec<Boolean> textViewTrapTest(DirectionalPadInput directionalPadInput) {
-        return SecAdapter.create(handler, secAdapter -> {
-            try {
-                DpadTextTrapBugTest test = new DpadTextTrapBugTest(
-                        testContainer,
-                        FRAME_LAYOUT_MATCH_PARENT,
-                        secAdapter::provideResult,
-                        directionalPadInput);
-                test.startTest();
-                activeTest = test;
-            } catch (RuntimeException e) {
-                secAdapter.throwError(e);
-            }
-        });
-    }
-
-    private Optional<AccessibilityInputService.AccessibilityInputHandler> getAccessibilityBinder() {
-        return Optional.ofNullable(accessibilityBinder);
-    }
-
-    public class AccessibilityServiceConnection extends MakeshiftServiceConnection {
+    public class AutoDetectServiceConnection extends MakeshiftServiceConnection {
         @Override
         public void onServiceConnected(ComponentName name, IBinder service) {
-            Log.i(TAG, "accessibility service connected");
-            accessibilityBinder = (AccessibilityInputService.AccessibilityInputHandler) service;
+            Log.i(TAG, "compatibility auto detect service connected");
+            autoDetectServiceBinder = (CompatibilityAutoDetectService.ServiceBinder) service;
 
-            // if the user hasn't already granted this, it's not going to be granted during the test. also it interferes with the test.
-            ((AccessibilityInputService.AccessibilityInputHandler) service).silencePromptForImeDpadAssist();
+            startNextTestIfReady();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName name) {
-            Log.i(TAG, "accessibility service disconnected");
-            accessibilityBinder = null;
+            Log.i(TAG, "compatibility auto detect service disconnected");
+            autoDetectServiceBinder = null;
         }
     }
 }

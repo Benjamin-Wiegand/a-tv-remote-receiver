@@ -122,6 +122,7 @@
         <activity
             android:name=".ui.test.InputTestActivity"
             android:exported="false"
+            android:launchMode="singleInstance"
             />
 
         <service
@@ -171,6 +172,10 @@
 
         <service
             android:name=".network.TVRemoteServer"
+            android:exported="false" />
+
+        <service
+            android:name=".ui.test.CompatibilityAutoDetectService"
             android:exported="false" />
     </application>
 

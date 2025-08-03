@@ -12,11 +12,14 @@ import android.util.TypedValue;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.FrameLayout;
 
 import androidx.annotation.StringRes;
 
 public class UiUtil {
     private static final String TAG = UiUtil.class.getSimpleName();
+
+    public static final FrameLayout.LayoutParams FRAME_LAYOUT_MATCH_PARENT = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT);
 
     public static final TimeInterpolator EASE_OUT = t -> 1-(t-1f)*(t-1f);
     public static final TimeInterpolator EASE_IN = t -> t*t;
