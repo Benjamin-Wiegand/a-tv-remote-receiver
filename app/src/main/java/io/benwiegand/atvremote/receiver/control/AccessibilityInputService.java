@@ -1517,6 +1517,10 @@ public class AccessibilityInputService extends AccessibilityService implements M
             debugShowMatchingNodesCondition = condition;
         }
 
+        public int getUiUpdateSerial() {
+            return uiUpdateSerial.get();
+        }
+
         public DirectionalPadInput getFakeDirectionalPadInput() {
             return fakeDirectionalPadInput;
         }
