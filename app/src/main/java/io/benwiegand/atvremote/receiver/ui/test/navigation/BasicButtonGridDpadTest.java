@@ -1,4 +1,4 @@
-package io.benwiegand.atvremote.receiver.ui.test;
+package io.benwiegand.atvremote.receiver.ui.test.navigation;
 
 import android.util.Log;
 import android.view.View;

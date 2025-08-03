@@ -26,6 +26,9 @@ import io.benwiegand.atvremote.receiver.control.ControlHandler;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.ui.test.navigation.BasicButtonGridDpadTest;
+import io.benwiegand.atvremote.receiver.ui.test.navigation.DpadTextTrapBugTest;
+import io.benwiegand.atvremote.receiver.ui.test.navigation.ImeFocusBugTest;
 
 public class CompatibilityAutoDetectService extends Service {
     private static final String TAG = CompatibilityAutoDetectService.class.getSimpleName();
