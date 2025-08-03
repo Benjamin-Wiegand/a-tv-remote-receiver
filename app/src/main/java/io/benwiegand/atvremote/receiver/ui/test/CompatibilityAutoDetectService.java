@@ -95,24 +95,32 @@ public class CompatibilityAutoDetectService extends Service {
     private void generateInputCompatibilityTestQueue() {
 
         // basic test of all the dpads to see what works
+
+        // some vendors seemingly break background ime context
         inputCompatibilityTests.add(new Test<>(
                 "IME DPAD - basic test", TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
 
+        // sanity check. if ime dpad and fake dpad both work, this should also work.
+        // in reality, if there's an issue with receiving ui updates as an accessibility service, this will break.
+        // thankfully, there are no known cases of this yet.
         inputCompatibilityTests.add(new Test<>(
                 "Accessibility assisted IME DPAD - basic test", TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
 
+        // hours of work have made this not the worst thing ever
+        // still doesn't work in many apps, but may be the only option for some older devices
         inputCompatibilityTests.add(new Test<>(
                 "Accessibility fake DPAD - basic test", TestType.INPUT_NAVIGATION,
                 activity -> getControlHandler(ControlSourceConnector::getAccessibilityFakeDirectionalPadInput)
                         .flatMap(directionalPadInput -> createBasicButtonGridDpadTest(activity, directionalPadInput))
         ));
 
+        // should be the best, but apparently not on some devices (see DpadTextTrapBugTest)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             inputCompatibilityTests.add(new Test<>(
                     "Accessibility DPAD - basic test", TestType.INPUT_NAVIGATION,
