@@ -78,9 +78,26 @@ public record ReceiverCapabilities(
     // everything-dependent
     public static final String SUPPORTED_FEATURE_POWER_BUTTON = "POWER_BUTTON";
 
+    // feature set if compatibility test hasn't been run
+    // for now just support everything
+    public static final Set<String> DEFAULT_SUPPORTED_FEATURES = Set.of(
+            SUPPORTED_FEATURE_APP_SWITCHER,
+            SUPPORTED_FEATURE_QUICK_SETTINGS,
+            SUPPORTED_FEATURE_HOME_BUTTON,
+            SUPPORTED_FEATURE_NOTIFICATIONS,
+            SUPPORTED_FEATURE_MEDIA_SESSIONS,
+            SUPPORTED_FEATURE_MEDIA_CONTROLS,
+            SUPPORTED_FEATURE_MOUSE,
+            SUPPORTED_FEATURE_VOLUME,
+            SUPPORTED_FEATURE_POWER_BUTTON
+    );
+
     // google tv
     public static final String EXTRA_BUTTON_GTV_DASHBOARD = "DASHBOARD_BUTTON";
 
     // lineage os
     public static final String EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS = "LINEAGE_SYSTEM_OPTIONS_BUTTON";
+
+    // extra buttons if compatibility test hasn't been run
+    public static final Set<String> DEFAULT_EXTRA_BUTTONS = Set.of();
 }

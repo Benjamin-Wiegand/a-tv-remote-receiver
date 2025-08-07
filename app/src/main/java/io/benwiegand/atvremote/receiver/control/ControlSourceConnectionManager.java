@@ -1,5 +1,11 @@
 package io.benwiegand.atvremote.receiver.control;
 
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_IME;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER;
+
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
@@ -40,11 +46,6 @@ public class ControlSourceConnectionManager implements Destroyable {
     private static final String TAG = ControlSourceConnectionManager.class.getSimpleName();
 
     private static final String CONTROL_PRIORITY_AUTO = "auto";
-    private static final String CONTROL_PRIORITY_IDENTIFIER_IME = "ime";
-    private static final String CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY = "accessibility";
-    private static final String CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER = "notification";
-    private static final String CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD = "ime_assist";
-    private static final String CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD = "fake_dpad";
 
     private final ControlSourceConnector controlSourceConnector;
     private final ControlScheme controlScheme;
