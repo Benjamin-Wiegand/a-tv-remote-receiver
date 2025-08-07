@@ -1,5 +1,9 @@
 package io.benwiegand.atvremote.receiver.ui.test;
 
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD;
+import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_IME;
 import static io.benwiegand.atvremote.receiver.util.UiUtil.FRAME_LAYOUT_MATCH_PARENT;
 
 import android.app.Service;
@@ -17,7 +21,9 @@ import android.util.Log;
 import androidx.annotation.StringRes;
 
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Queue;
@@ -29,11 +35,13 @@ import java.util.function.Supplier;
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.async.PendingSec;
 import io.benwiegand.atvremote.receiver.async.SecAdapter;
+import io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager;
 import io.benwiegand.atvremote.receiver.control.AccessibilityInputService;
 import io.benwiegand.atvremote.receiver.control.ControlHandler;
 import io.benwiegand.atvremote.receiver.control.ControlSourceConnector;
 import io.benwiegand.atvremote.receiver.control.input.DirectionalPadInput;
 import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
+import io.benwiegand.atvremote.receiver.protocol.json.ReceiverCapabilities;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 import io.benwiegand.atvremote.receiver.ui.MakeshiftActivity;
 import io.benwiegand.atvremote.receiver.ui.test.feature.MenuFeatureCompatibilityTest;
@@ -73,7 +81,15 @@ public class CompatibilityAutoDetectService extends Service {
         }
     }
 
+    public record TestCompletionRecord<T>(String name, TestType type, T result) {
+        private TestCompletionRecord(Test<?> test, T result) {
+            this(test.name(), test.type(), result);
+        }
+    }
+
     private final Queue<Test<?>> inputCompatibilityTests = new LinkedList<>();
+    private final List<TestCompletionRecord<?>> runTests = new LinkedList<>();
+    private final List<TestCompletionRecord<Throwable>> failedTests = new LinkedList<>();
 
     private final Map<Integer, Object> compatibilityTestResults = new HashMap<>();
 
@@ -82,12 +98,17 @@ public class CompatibilityAutoDetectService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Executor redExecutor = r -> new Thread(r).start();
 
+    private final LinkedList<Supplier<Boolean>> failedStoreOps = new LinkedList<>();
+
     @Override
     public void onCreate() {
         super.onCreate();
         controlSourceConnector = new ControlSourceConnector(this, b -> {});
         MakeshiftServiceConnection.bindService(this, new ComponentName(this, AccessibilityInputService.class), accessibilityServiceConnection);
 
+        inputCompatibilityTests.clear();
+        runTests.clear();
+        failedTests.clear();
         generateInputCompatibilityTestQueue();
         generateFeatureInputCompatibilityTestQueue();
 
@@ -275,13 +296,140 @@ public class CompatibilityAutoDetectService extends Service {
         });
     }
 
+    private Optional<Boolean> getCompatibilityTestResultBoolean(int key) {
+        Object value = compatibilityTestResults.getOrDefault(key, null);
+        if (value instanceof Boolean) return Optional.of((boolean) value);
+        if (value == null) return Optional.empty();
+
+        throw new IllegalStateException("value at key " + key + " is not a boolean");
+    }
+
+    /**
+     * interprets and stores dpad test results into compatibility manager so they can be used
+     * @return false if a preference update failed
+     */
+    private boolean storeDpadResults(CompatibilityManager compatibilityManager) {
+        Log.d(TAG, "storing dpad results");
+        boolean result;
+
+        boolean accessibilityDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_basic).orElse(false);
+        boolean fakeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_fake_dpad_basic).orElse(false);
+        boolean imeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_basic).orElse(false);
+        boolean accessibilityAssistedImeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_basic).orElse(false)
+                && getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_focus_bug).orElse(false);
+
+        boolean imeDpadFocusBugSevere = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_ime_dpad_focus_bug).orElse(false);
+
+        result = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_text_editor_trap_bug)
+                .map(compatibilityManager::setAccessibilityDpadTextTrapBug)
+                .orElse(true);
+
+        List<String> dpadPriority = new LinkedList<>();
+        if (accessibilityDpadWorks) {
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY);
+            if (imeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+        } else if (imeDpadWorks && fakeDpadWorks && accessibilityAssistedImeDpadWorks) {
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD);
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+        } else if (imeDpadWorks && !imeDpadFocusBugSevere) {
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+            if (fakeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD);
+        } else if (fakeDpadWorks) {
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD);
+            if (imeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+        } else if (imeDpadWorks) {
+            dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+        }
+
+        if (!dpadPriority.isEmpty()) {
+            String dpadPriorityString = String.join(",", dpadPriority);
+            Log.d(TAG, "new dpad control priority: " + dpadPriorityString);
+            result &= compatibilityManager.setDpadControlPriority(dpadPriorityString);
+        } else {
+            Log.e(TAG, "unable to create dpad priority string from test results - no viable configurations");
+        }
+
+        return result;
+    }
+
+    /**
+     * interprets and stores feature test results as capabilities in the compatibility manager
+     * @return false if a preference update failed
+     */
+    private boolean storeCapabilityResults(CompatibilityManager compatibilityManager) {
+        Log.d(TAG, "storing capability results");
+        HashSet<String> supportedFeatures = new HashSet<>();
+        HashSet<String> unsupportedFeatures = new HashSet<>();
+
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_overview_button)
+                .map(supported -> supported ? supportedFeatures : unsupportedFeatures)
+                .ifPresent(set -> set.add(ReceiverCapabilities.SUPPORTED_FEATURE_APP_SWITCHER));
+
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_notification_button)
+                .map(supported -> supported ? supportedFeatures : unsupportedFeatures)
+                .ifPresent(set -> set.add(ReceiverCapabilities.SUPPORTED_FEATURE_NOTIFICATIONS));
+
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_quick_settings_action)
+                .map(supported -> supported ? supportedFeatures : unsupportedFeatures)
+                .ifPresent(set -> set.add(ReceiverCapabilities.SUPPORTED_FEATURE_QUICK_SETTINGS));
+
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_home_button)
+                .map(supported -> supported ? supportedFeatures : unsupportedFeatures)
+                .ifPresent(set -> set.add(ReceiverCapabilities.SUPPORTED_FEATURE_HOME_BUTTON));
+
+        //todo
+//        ReceiverCapabilities.SUPPORTED_FEATURE_MEDIA_SESSIONS
+//        ReceiverCapabilities.SUPPORTED_FEATURE_MEDIA_CONTROLS
+//        ReceiverCapabilities.SUPPORTED_FEATURE_MOUSE
+//        ReceiverCapabilities.SUPPORTED_FEATURE_VOLUME
+//        ReceiverCapabilities.SUPPORTED_FEATURE_POWER_BUTTON
+
+        HashSet<String> supportedExtraButtons = new HashSet<>();
+        HashSet<String> unsupportedExtraButtons = new HashSet<>();
+
+        //todo
+
+        return compatibilityManager.updateCapabilities(supportedFeatures, unsupportedFeatures, supportedExtraButtons, unsupportedExtraButtons);
+    }
+
+    private void onTestsComplete() {
+        getTestProgressOverlay()
+                .ifPresent(MakeshiftActivity::hide);
+
+
+        CompatibilityManager compatibilityManager = new CompatibilityManager(this);
+
+        List<Supplier<Boolean>> storeOps = List.of(
+                () -> storeDpadResults(compatibilityManager),
+                () -> storeCapabilityResults(compatibilityManager)
+        );
+        failedStoreOps.clear();
+
+        for (Supplier<Boolean> storeOp : storeOps) {
+            boolean success = false;
+            for (int i = 0; i < 3; i++) {
+                if (!storeOp.get()) continue;
+                success = true;
+                break;
+            }
+
+            if (!success) {
+                Log.e(TAG, "store operation failed");
+                failedStoreOps.add(storeOp);
+            }
+        }
+
+
+        //todo: failed op retry button
+    }
+
     public class ServiceBinder extends Binder {
 
         public void onInputTestActivityReady(InputTestActivity activity) {
             Test<?> test = inputCompatibilityTests.poll();
             if (test == null) {
-                //todo
                 Log.i(TAG, "end of test queue");
+                onTestsComplete();
                 return;
             }
 
@@ -295,6 +443,7 @@ public class CompatibilityAutoDetectService extends Service {
                         Log.i(TAG, "test finished with result: " + result);
 
                         compatibilityTestResults.put(test.id(), result);
+                        runTests.add(new TestCompletionRecord<>(test, result));
 
                         if (test.type.shouldShowLog()) {
                             assert result instanceof Boolean;
@@ -306,6 +455,8 @@ public class CompatibilityAutoDetectService extends Service {
                     })
                     .doOnError(t -> {
                         Log.e(TAG, "test failed, exception thrown", t);
+
+                        failedTests.add(new TestCompletionRecord<>(test, t));
 
                         if (test.type.shouldShowLog()) {
                             getTestProgressOverlay()
