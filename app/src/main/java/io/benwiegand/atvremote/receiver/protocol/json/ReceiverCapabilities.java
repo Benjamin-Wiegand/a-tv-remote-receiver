@@ -5,6 +5,7 @@ import android.content.Context;
 import android.content.pm.PackageManager;
 
 import java.util.HashSet;
+import java.util.Set;
 
 import io.benwiegand.atvremote.receiver.control.ControlScheme;
 
@@ -25,6 +26,7 @@ public record ReceiverCapabilities(
         // for now always assume support for these
         features.add(SUPPORTED_FEATURE_APP_SWITCHER);
         features.add(SUPPORTED_FEATURE_QUICK_SETTINGS);
+        features.add(SUPPORTED_FEATURE_HOME_BUTTON);
         features.add(SUPPORTED_FEATURE_NOTIFICATIONS);
         features.add(SUPPORTED_FEATURE_MEDIA_SESSIONS);
         features.add(SUPPORTED_FEATURE_MEDIA_CONTROLS);
@@ -58,6 +60,9 @@ public record ReceiverCapabilities(
     // non-TV builds
     public static final String SUPPORTED_FEATURE_APP_SWITCHER = "APP_SWITCHER";
     public static final String SUPPORTED_FEATURE_QUICK_SETTINGS = "QUICK_SETTINGS";
+
+    // version-dependent on tv builds
+    public static final String SUPPORTED_FEATURE_HOME_BUTTON = "HOME_BUTTON";
 
     // vendor-dependent
     public static final String SUPPORTED_FEATURE_NOTIFICATIONS = "NOTIFICATIONS";
