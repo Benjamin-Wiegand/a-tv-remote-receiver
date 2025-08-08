@@ -88,7 +88,7 @@
             </LinearLayout>
 
             <LinearLayout
-                android:layout_width="wrap_content"
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:layout_marginTop="12dp"
@@ -97,7 +97,7 @@
                 <Button
                     android:id="@+id/grant_button"
                     style="@style/Widget.Leanback.DetailsActionButtonStyle"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:visibility="gone"
                     tools:visibility="visible"
@@ -107,7 +107,7 @@
                 <Button
                     android:id="@+id/cancel_button"
                     style="@style/Widget.Leanback.DetailsActionButtonStyle"
-                    android:layout_width="wrap_content"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/button_cancel"
                     />
