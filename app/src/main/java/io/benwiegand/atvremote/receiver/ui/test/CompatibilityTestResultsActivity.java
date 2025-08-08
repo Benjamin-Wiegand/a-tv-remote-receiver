@@ -61,6 +61,11 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
     protected void onDestroy() {
         super.onDestroy();
 
+        if (!isChangingConfigurations()) {
+            Log.v(TAG, "killing compatibility test service");
+            stopService(new Intent(this, CompatibilityAutoDetectService.class));
+        }
+
         try {
             unbindService(autoDetectServiceConnection);
         } catch (Throwable t) {
