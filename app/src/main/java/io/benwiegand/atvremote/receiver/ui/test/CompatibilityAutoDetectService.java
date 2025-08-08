@@ -101,7 +101,7 @@ public class CompatibilityAutoDetectService extends Service {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Executor redExecutor = r -> new Thread(r).start();
 
-    private final LinkedList<Supplier<Boolean>> failedStoreOps = new LinkedList<>();
+    private final LinkedList<Supplier<Boolean>> pendingStoreOps = new LinkedList<>();
 
     @Override
     public void onCreate() {
@@ -308,12 +308,12 @@ public class CompatibilityAutoDetectService extends Service {
     }
 
     /**
-     * interprets and stores dpad test results into compatibility manager so they can be used
-     * @return false if a preference update failed
+     * interprets dpad test results and returns a callback which can store appropriate
+     * compatibility settings via a CompatibilityManager
+     * @return Supplier which will store compatibility settings when called. the result will be false if a preference update fails.
      */
-    private boolean storeDpadResults(CompatibilityManager compatibilityManager) {
+    private Supplier<Boolean> storeDpadResults(CompatibilityManager compatibilityManager) {
         Log.d(TAG, "storing dpad results");
-        boolean result;
 
         boolean accessibilityDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_basic).orElse(false);
         boolean fakeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_fake_dpad_basic).orElse(false);
@@ -323,9 +323,9 @@ public class CompatibilityAutoDetectService extends Service {
 
         boolean imeDpadFocusBugSevere = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_ime_dpad_focus_bug).orElse(false);
 
-        result = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_text_editor_trap_bug)
-                .map(compatibilityManager::setAccessibilityDpadTextTrapBug)
-                .orElse(true);
+        Supplier<Boolean> storeOp = () -> getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_text_editor_trap_bug)
+                        .map(compatibilityManager::setAccessibilityDpadTextTrapBug)
+                        .orElse(true);
 
         List<String> dpadPriority = new LinkedList<>();
         if (accessibilityDpadWorks) {
@@ -354,19 +354,21 @@ public class CompatibilityAutoDetectService extends Service {
         if (!dpadPriority.isEmpty()) {
             String dpadPriorityString = String.join(",", dpadPriority);
             Log.d(TAG, "new dpad control priority: " + dpadPriorityString);
-            result &= compatibilityManager.setDpadControlPriority(dpadPriorityString);
+            Supplier<Boolean> prevStoreOp = storeOp;
+            storeOp = () -> prevStoreOp.get() && compatibilityManager.setDpadControlPriority(dpadPriorityString);
         } else {
             Log.e(TAG, "unable to create dpad priority string from test results - no viable configurations");
         }
 
-        return result;
+        return storeOp;
     }
 
     /**
-     * interprets and stores feature test results as capabilities in the compatibility manager
-     * @return false if a preference update failed
+     * interprets feature test results and returns a callback which can store appropriate
+     * compatibility settings via a CompatibilityManager
+     * @return Supplier which will store compatibility settings when called. the result will be false if a preference update fails.
      */
-    private boolean storeCapabilityResults(CompatibilityManager compatibilityManager) {
+    private Supplier<Boolean> storeCapabilityResults(CompatibilityManager compatibilityManager) {
         Log.d(TAG, "storing capability results");
         HashSet<String> supportedFeatures = new HashSet<>();
         HashSet<String> unsupportedFeatures = new HashSet<>();
@@ -399,35 +401,20 @@ public class CompatibilityAutoDetectService extends Service {
 
         //todo
 
-        return compatibilityManager.updateCapabilities(supportedFeatures, unsupportedFeatures, supportedExtraButtons, unsupportedExtraButtons);
+        return () -> compatibilityManager.updateCapabilities(supportedFeatures, unsupportedFeatures, supportedExtraButtons, unsupportedExtraButtons);
     }
 
     private void onTestsComplete() {
         getTestProgressOverlay()
                 .ifPresent(MakeshiftActivity::hide);
 
+        CompatibilityManager compatibilityManager = new CompatibilityManager(CompatibilityAutoDetectService.this);
 
-        CompatibilityManager compatibilityManager = new CompatibilityManager(this);
-
-        List<Supplier<Boolean>> storeOps = List.of(
-                () -> storeDpadResults(compatibilityManager),
-                () -> storeCapabilityResults(compatibilityManager)
-        );
-        failedStoreOps.clear();
-
-        for (Supplier<Boolean> storeOp : storeOps) {
-            boolean success = false;
-            for (int i = 0; i < 3; i++) {
-                if (!storeOp.get()) continue;
-                success = true;
-                break;
-            }
-
-            if (!success) {
-                Log.e(TAG, "store operation failed");
-                failedStoreOps.add(storeOp);
-            }
-        }
+        pendingStoreOps.clear();
+        pendingStoreOps.addAll(List.of(
+                storeDpadResults(compatibilityManager),
+                storeCapabilityResults(compatibilityManager)
+        ));
 
         startActivity(new Intent(this, CompatibilityTestResultsActivity.class)
                 .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
@@ -476,6 +463,29 @@ public class CompatibilityAutoDetectService extends Service {
                         activity.resetForNextTest();
                     })
                     .callMeWhenDone();
+        }
+
+        public boolean storeSettings() {
+            List<Supplier<Boolean>> failedStoreOps = new LinkedList<>();
+
+            while (!pendingStoreOps.isEmpty()) {
+                Supplier<Boolean> storeOp = pendingStoreOps.pop();
+
+                boolean success = false;
+                for (int i = 0; i < 3; i++) {
+                    if (!storeOp.get()) continue;
+                    success = true;
+                    break;
+                }
+
+                if (!success) {
+                    Log.e(TAG, "store operation failed");
+                    failedStoreOps.add(storeOp);
+                }
+            }
+
+            pendingStoreOps.addAll(failedStoreOps);
+            return pendingStoreOps.isEmpty();
         }
 
         public List<TestCompletionRecord<Throwable>> getFailedTests() {

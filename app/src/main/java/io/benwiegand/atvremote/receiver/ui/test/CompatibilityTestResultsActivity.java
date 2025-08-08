@@ -11,6 +11,7 @@ import android.view.ViewGroup;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
@@ -112,6 +113,35 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
         return view;
     }
 
+    private void storeSettings() {
+        getAutoDetectServiceBinder()
+                .map(CompatibilityAutoDetectService.ServiceBinder::storeSettings)
+                .ifPresentOrElse(
+                        stored -> {
+                            if (!stored) {
+                                showStoreFailedDialog();
+                                return;
+                            }
+                            finish();
+                        }, () -> {
+                            Log.wtf(TAG, "service disconnected before settings were saved");
+                            Toast.makeText(this, "failed! service is dead", Toast.LENGTH_LONG).show();
+                            finish();
+                        });
+    }
+
+    private void showStoreFailedDialog() {
+        guidedDialogLauncher.launch(new GuidedDialogActivity.RequestData(
+                getResources(),
+                R.string.compatibility_test_results_store_failed_title,
+                R.string.compatibility_test_results_store_failed_description,
+                null, null,
+                () -> {},
+                new UiUtil.ButtonPreset(R.string.button_retry, vv -> storeSettings()),
+                new UiUtil.ButtonPreset(R.string.button_cancel, vv -> {})
+        ));
+    }
+
     private void showDiscardConfirmDialog() {
         guidedDialogLauncher.launch(new GuidedDialogActivity.RequestData(
                 getResources(),
@@ -144,10 +174,7 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
                 advancedInfo.addView(inflateAdvancedTestResult(advancedInfo, testResult));
             }
 
-
-            findViewById(R.id.save_button).setOnClickListener(v -> {
-                //todo
-            });
+            findViewById(R.id.save_button).setOnClickListener(v -> storeSettings());
             findViewById(R.id.cancel_button).setOnClickListener(v -> showDiscardConfirmDialog());
 
             findViewById(R.id.loading_spinner).setVisibility(View.GONE);
