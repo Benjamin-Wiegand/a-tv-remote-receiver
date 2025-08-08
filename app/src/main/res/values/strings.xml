@@ -1,4 +1,4 @@
-<resources>
+<resources xmlns:tools="http://schemas.android.com/tools">
     <string name="app_name">A TV Remote Receiver</string>
     <string name="accessibility_input_service_label">A TV Remote Inputs</string>
     <string name="accessibility_input_service_description">Allows control of your device via a remote client</string>
@@ -6,7 +6,9 @@
     <string name="notification_input_service_label">Media controls</string>
 
     <!-- general ui -->
-    <string name="button_cancel">Cancel</string>
+    <string name="button_cancel" tools:ignore="ButtonCase">cancel</string>
+    <string name="button_retry">retry</string>
+    <string name="button_discard">discard</string>
 
     <!-- pairing popup -->
     <string name="title_pairing_popup">pair remote</string>
@@ -162,6 +164,11 @@
     <string name="compatibility_test_results_verdict_navigation_issues">Some apps may have navigation issues</string>
     <string name="compatibility_test_results_verdict_tests_failed_to_run">Compatibility tests failed to run</string>
     <string name="compatibility_test_results_save_button">save compatibility settings</string>
+
+    <string name="compatibility_test_results_abort_confirm_title">discard compatibility settings?</string>
+    <string name="compatibility_test_results_abort_confirm_description">are you sure you want to discard the auto-discovered compatibility settings?</string>
+    <string name="compatibility_test_results_store_failed_title">failed to store some settings</string>
+    <string name="compatibility_test_results_store_failed_description">some of the auto-discovered compatibility settings failed to save. do you want to retry?</string>
 
 
     <!-- input method preferences -->

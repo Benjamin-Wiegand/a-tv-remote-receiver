@@ -1,6 +1,5 @@
 package io.benwiegand.atvremote.receiver.ui.test;
 
-import android.app.Activity;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.res.ColorStateList;
@@ -13,20 +12,26 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import androidx.activity.OnBackPressedCallback;
+import androidx.activity.result.ActivityResultLauncher;
 import androidx.appcompat.content.res.AppCompatResources;
 import androidx.core.widget.TextViewCompat;
+import androidx.fragment.app.FragmentActivity;
 
 import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.R;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
+import io.benwiegand.atvremote.receiver.ui.GuidedDialogActivity;
 import io.benwiegand.atvremote.receiver.util.UiUtil;
 
-public class CompatibilityTestResultsActivity extends Activity {
+public class CompatibilityTestResultsActivity extends FragmentActivity {
     private final static String TAG = CompatibilityTestResultsActivity.class.getSimpleName();
 
     private final AutoDetectServiceConnection autoDetectServiceConnection = new AutoDetectServiceConnection();
     private CompatibilityAutoDetectService.ServiceBinder autoDetectServiceBinder = null;
+
+    private final ActivityResultLauncher<GuidedDialogActivity.RequestData> guidedDialogLauncher = registerForActivityResult(new GuidedDialogActivity.Contract(), ignored -> {});
 
 
     @Override
@@ -42,6 +47,13 @@ public class CompatibilityTestResultsActivity extends Activity {
 
         boolean bindResult = bindService(new Intent(this, CompatibilityAutoDetectService.class), autoDetectServiceConnection, BIND_IMPORTANT);
         assert bindResult;
+
+        getOnBackPressedDispatcher().addCallback(new OnBackPressedCallback(true) {
+            @Override
+            public void handleOnBackPressed() {
+                showDiscardConfirmDialog();
+            }
+        });
     }
 
     private void setTestSummary(CompatibilityTestSummary summary) {
@@ -100,6 +112,18 @@ public class CompatibilityTestResultsActivity extends Activity {
         return view;
     }
 
+    private void showDiscardConfirmDialog() {
+        guidedDialogLauncher.launch(new GuidedDialogActivity.RequestData(
+                getResources(),
+                R.string.compatibility_test_results_abort_confirm_title,
+                R.string.compatibility_test_results_abort_confirm_description,
+                null, null,
+                () -> {},
+                new UiUtil.ButtonPreset(R.string.button_cancel, vv -> {}),
+                new UiUtil.ButtonPreset(R.string.button_discard, vv -> finish())
+        ));
+    }
+
     private Optional<CompatibilityAutoDetectService.ServiceBinder> getAutoDetectServiceBinder() {
         return Optional.ofNullable(autoDetectServiceBinder);
     }
@@ -120,9 +144,11 @@ public class CompatibilityTestResultsActivity extends Activity {
                 advancedInfo.addView(inflateAdvancedTestResult(advancedInfo, testResult));
             }
 
-            //todo
-            findViewById(R.id.save_button);
-            findViewById(R.id.cancel_button);
+
+            findViewById(R.id.save_button).setOnClickListener(v -> {
+                //todo
+            });
+            findViewById(R.id.cancel_button).setOnClickListener(v -> showDiscardConfirmDialog());
 
             findViewById(R.id.loading_spinner).setVisibility(View.GONE);
         }
