@@ -4,12 +4,15 @@ import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManage
 import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD;
 import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD;
 import static io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager.CONTROL_PRIORITY_IDENTIFIER_IME;
+import static io.benwiegand.atvremote.receiver.control.IntentConstants.GOOGLE_TV_DASHBOARD_ACTIVITY;
+import static io.benwiegand.atvremote.receiver.control.IntentConstants.LINEAGE_SYSTEM_OPTIONS_ACTIVITY;
 import static io.benwiegand.atvremote.receiver.util.UiUtil.FRAME_LAYOUT_MATCH_PARENT;
 
 import android.app.Service;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Build;
 import android.os.Handler;
@@ -114,6 +117,7 @@ public class CompatibilityAutoDetectService extends Service {
         failedTests.clear();
         generateInputCompatibilityTestQueue();
         generateFeatureInputCompatibilityTestQueue();
+        generateActivityInputCompatibilityTestQueue();
 
         if (Settings.canDrawOverlays(getApplicationContext())) {
             testProgressOverlay = new CompatibilityTestProgressOverlay(getApplicationContext(), MakeshiftActivity.OverlayMode.APPLICATION_OVERLAY);
@@ -241,6 +245,18 @@ public class CompatibilityAutoDetectService extends Service {
         ));
     }
 
+    private void generateActivityInputCompatibilityTestQueue() {
+        inputCompatibilityTests.add(new Test<>(
+                this, R.string.input_feature_compatibility_test_gtv_dashboard, TestType.FEATURE_PRESENCE,
+                activity -> createActivityCheckTest(GOOGLE_TV_DASHBOARD_ACTIVITY)
+        ));
+
+        inputCompatibilityTests.add(new Test<>(
+                this, R.string.input_feature_compatibility_test_lineage_options, TestType.FEATURE_PRESENCE,
+                activity -> createActivityCheckTest(LINEAGE_SYSTEM_OPTIONS_ACTIVITY)
+        ));
+    }
+
     private PendingSec<Boolean> createBasicButtonGridDpadTest(InputTestActivity activity, DirectionalPadInput directionalPadInput) {
         return SecAdapter.create(handler, secAdapter -> {
             BasicButtonGridDpadTest test = new BasicButtonGridDpadTest(
@@ -288,6 +304,19 @@ public class CompatibilityAutoDetectService extends Service {
                     openMenu);
             test.startTest();
             cancelCurrentTest = test::cancelTest;
+        });
+    }
+
+    private PendingSec<Boolean> createActivityCheckTest(ComponentName componentName) {
+        return SecAdapter.createSimple(handler, () -> {
+            try {
+                getPackageManager().getActivityInfo(componentName, 0);
+                Log.i(TAG, "activity present: " + componentName);
+                return true;
+            } catch (PackageManager.NameNotFoundException e) {
+                Log.i(TAG, "activity not present: " + componentName);
+                return false;
+            }
         });
     }
 
@@ -399,7 +428,13 @@ public class CompatibilityAutoDetectService extends Service {
         HashSet<String> supportedExtraButtons = new HashSet<>();
         HashSet<String> unsupportedExtraButtons = new HashSet<>();
 
-        //todo
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_gtv_dashboard)
+                .map(supported -> supported ? supportedExtraButtons : unsupportedExtraButtons)
+                .ifPresent(set -> set.add(ReceiverCapabilities.EXTRA_BUTTON_GTV_DASHBOARD));
+
+        getCompatibilityTestResultBoolean(R.string.input_feature_compatibility_test_lineage_options)
+                .map(supported -> supported ? supportedExtraButtons : unsupportedExtraButtons)
+                .ifPresent(set -> set.add(ReceiverCapabilities.EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS));
 
         return () -> compatibilityManager.updateCapabilities(supportedFeatures, unsupportedFeatures, supportedExtraButtons, unsupportedExtraButtons);
     }

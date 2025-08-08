@@ -141,17 +141,23 @@
     <string name="input_compatibility_test_in_progress_text">finding optimal compatibility settings, please wait…</string>
     <string name="input_compatibility_test_pass_text">PASS</string>
     <string name="input_compatibility_test_fail_text">FAIL</string>
+
     <string name="input_compatibility_test_ime_dpad_basic">IME DPAD - basic test</string>
     <string name="input_compatibility_test_accessibility_assisted_ime_dpad_basic">Accessibility assisted IME DPAD - basic test</string>
     <string name="input_compatibility_test_fake_dpad_basic">Fake DPAD - basic test</string>
     <string name="input_compatibility_test_accessibility_dpad_basic">accessibility DPAD - basic test</string>
+
     <string name="input_compatibility_test_ime_dpad_focus_bug">IME DPAD - IME focus bug test</string>
     <string name="input_compatibility_test_accessibility_assisted_ime_dpad_focus_bug">Accessibility assisted IME DPAD - IME focus bug test</string>
     <string name="input_compatibility_test_accessibility_dpad_text_editor_trap_bug">Accessibility DPAD - text editor trap bug test</string>
+
     <string name="input_feature_compatibility_test_overview_button">Overview button support</string>
     <string name="input_feature_compatibility_test_notification_button">Notification button support</string>
     <string name="input_feature_compatibility_test_quick_settings_action">Quick settings action support</string>
     <string name="input_feature_compatibility_test_home_button">Home button support</string>
+
+    <string name="input_feature_compatibility_test_gtv_dashboard">Google TV dashboard</string>
+    <string name="input_feature_compatibility_test_lineage_options">Lineage OS system options</string>
 
     <string name="test_results_expand_text">show advanced info</string>
     <string name="test_results_collapse_text">hide advanced info</string>
