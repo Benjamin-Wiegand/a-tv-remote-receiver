@@ -22,6 +22,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.compatibility.CompatibilityManager;
 import io.benwiegand.atvremote.receiver.control.input.ActivityLauncherInput;
 import io.benwiegand.atvremote.receiver.control.input.BackNavigationInput;
 import io.benwiegand.atvremote.receiver.control.input.CursorInput;
@@ -150,10 +151,11 @@ public class ControlSourceConnectionManager implements Destroyable {
     }
 
     private ControlScheme generateControlScheme() {
+        CompatibilityManager compatibilityManager = new CompatibilityManager(context);
+
         SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
         boolean manualPriorityMode = sharedPreferences.getBoolean(context.getString(R.string.input_method_preferences_custom_priority_key), false);
 
-        // todo: the auto string will be fetched from shared prefs too eventually
         BiFunction<Integer, String, String> getPriority = (manualRes, autoString) -> {
             if (!manualPriorityMode) return autoString;
             String manualString = sharedPreferences.getString(context.getString(manualRes), null);
@@ -182,7 +184,7 @@ public class ControlSourceConnectionManager implements Destroyable {
         // this of course means the control scheme needs to be regenerated if the preferences change
         return new ControlScheme(
                 generateControlHandlerSupplier(ActivityLauncherInput.class,
-                        getPriority.apply(R.string.input_method_preferences_activity_launcher_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
+                        getPriority.apply(R.string.input_method_preferences_activity_launcher_priority_key, compatibilityManager.getActivityLauncherControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityActivityLauncherInput,
@@ -191,7 +193,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(CursorInput.class,
-                        getPriority.apply(R.string.input_method_preferences_mouse_cursor_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
+                        getPriority.apply(R.string.input_method_preferences_mouse_cursor_priority_key, compatibilityManager.getCursorControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityFakeCursorInput,
@@ -200,19 +202,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(DirectionalPadInput.class,
-                        getPriority.apply(
-                                R.string.input_method_preferences_dpad_priority_key,
-                                String.join(",",
-                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new String[] {
-                                                CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
-                                                CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD,
-                                                CONTROL_PRIORITY_IDENTIFIER_IME,
-                                        } : new String[] {
-                                                CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD,
-                                                CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD,
-                                                CONTROL_PRIORITY_IDENTIFIER_IME,
-                                        }
-                                    )),
+                        getPriority.apply(R.string.input_method_preferences_dpad_priority_key, compatibilityManager.getDpadControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityAssistedImeDirectionalPadInput,
@@ -233,17 +223,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(KeyboardInput.class,
-                        getPriority.apply(
-                                R.string.input_method_preferences_keyboard_priority_key,
-                                String.join(",",
-                                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new String[] {
-                                                CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
-                                                CONTROL_PRIORITY_IDENTIFIER_IME,
-                                        } : new String[] {
-                                                CONTROL_PRIORITY_IDENTIFIER_IME,
-                                                CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
-                                        }
-                                )),
+                        getPriority.apply(R.string.input_method_preferences_keyboard_priority_key, compatibilityManager.getKeyboardControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityKeyboardInput,
@@ -256,11 +236,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(MediaInput.class,
-                        getPriority.apply(
-                                R.string.input_method_preferences_media_priority_key,
-                                String.join(",",
-                                        CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER,
-                                        CONTROL_PRIORITY_IDENTIFIER_IME)),
+                        getPriority.apply(R.string.input_method_preferences_media_priority_key, compatibilityManager.getMediaControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_NOTIFICATION_LISTENER, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getNotificationListenerMediaInput,
@@ -273,7 +249,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(FullNavigationInput.class,
-                        getPriority.apply(R.string.input_method_preferences_full_navigation_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
+                        getPriority.apply(R.string.input_method_preferences_full_navigation_priority_key, compatibilityManager.getFullNavigationControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityFullNavigationInput,
@@ -282,11 +258,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(BackNavigationInput.class,
-                        getPriority.apply(
-                                R.string.input_method_preferences_back_navigation_priority_key,
-                                String.join(",",
-                                        CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
-                                        CONTROL_PRIORITY_IDENTIFIER_IME)),
+                        getPriority.apply(R.string.input_method_preferences_back_navigation_priority_key, compatibilityManager.getBackNavigationControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityFullNavigationInput,
@@ -303,11 +275,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                 },
 
                 generateControlHandlerSupplier(VolumeInput.class,
-                        getPriority.apply(
-                                R.string.input_method_preferences_volume_priority_key,
-                                String.join(",",
-                                        CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY,
-                                        CONTROL_PRIORITY_IDENTIFIER_IME)),
+                        getPriority.apply(R.string.input_method_preferences_volume_priority_key, compatibilityManager.getVolumeControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityVolumeInput,
@@ -320,7 +288,7 @@ public class ControlSourceConnectionManager implements Destroyable {
                         )),
 
                 generateControlHandlerSupplier(PowerInput.class,
-                        getPriority.apply(R.string.input_method_preferences_power_priority_key, CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY),
+                        getPriority.apply(R.string.input_method_preferences_power_priority_key, compatibilityManager.getPowerControlPriority()),
                         Map.of(
                                 CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY, new ControlHandlerInfo<>(context,
                                         controlSourceConnector::getAccessibilityPowerInput,
