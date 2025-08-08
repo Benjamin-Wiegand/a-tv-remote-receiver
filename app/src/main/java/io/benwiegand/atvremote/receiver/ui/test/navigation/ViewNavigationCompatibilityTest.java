@@ -9,6 +9,7 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import io.benwiegand.atvremote.receiver.ui.test.CompatibilityTest;
+import io.benwiegand.atvremote.receiver.ui.test.exception.TestInitFailureException;
 
 public abstract class ViewNavigationCompatibilityTest extends CompatibilityTest {
     private final String TAG = getLogTag();
@@ -61,8 +62,7 @@ public abstract class ViewNavigationCompatibilityTest extends CompatibilityTest 
     private void tryInitFocus() {
         if (initFocusAttempts++ >= INIT_FOCUS_MAX_ATTEMPTS) {
             Log.e(TAG, "focus init failed, retry attempts exhausted");
-            setResult(false);
-            Log.i(TAG, "test init failure:\n- pass = " + isPass() + "\n- elapsed ms = " + getElapsedTime());
+            setError(new TestInitFailureException("focus init failed with " + initFocusAttempts + " attempts"));
             return;
         }
 

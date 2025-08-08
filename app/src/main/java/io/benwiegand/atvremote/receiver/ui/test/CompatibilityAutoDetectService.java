@@ -47,6 +47,7 @@ import io.benwiegand.atvremote.receiver.protocol.KeyEventType;
 import io.benwiegand.atvremote.receiver.protocol.json.ReceiverCapabilities;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 import io.benwiegand.atvremote.receiver.ui.MakeshiftActivity;
+import io.benwiegand.atvremote.receiver.ui.test.exception.TestException;
 import io.benwiegand.atvremote.receiver.ui.test.feature.MenuFeatureCompatibilityTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.BasicButtonGridDpadTest;
 import io.benwiegand.atvremote.receiver.ui.test.navigation.DpadTextTrapBugTest;
@@ -257,12 +258,26 @@ public class CompatibilityAutoDetectService extends Service {
         ));
     }
 
+    private static CompatibilityTest.Callback adaptSecAdapterToTestCallback(SecAdapter<Boolean> secAdapter) {
+        return new CompatibilityTest.Callback() {
+            @Override
+            public void onFinished(boolean pass) {
+                secAdapter.provideResult(pass);
+            }
+
+            @Override
+            public void onUnsuccessful(TestException t) {
+                secAdapter.throwError(t);
+            }
+        };
+    }
+
     private PendingSec<Boolean> createBasicButtonGridDpadTest(InputTestActivity activity, DirectionalPadInput directionalPadInput) {
         return SecAdapter.create(handler, secAdapter -> {
             BasicButtonGridDpadTest test = new BasicButtonGridDpadTest(
                     activity.getTestContainer(),
                     FRAME_LAYOUT_MATCH_PARENT,
-                    secAdapter::provideResult,
+                    adaptSecAdapterToTestCallback(secAdapter),
                     directionalPadInput);
             test.startTest();
             cancelCurrentTest = test::cancelTest;
@@ -274,7 +289,7 @@ public class CompatibilityAutoDetectService extends Service {
             ImeFocusBugTest test = new ImeFocusBugTest(
                     activity.getTestContainer(),
                     FRAME_LAYOUT_MATCH_PARENT,
-                    secAdapter::provideResult,
+                    adaptSecAdapterToTestCallback(secAdapter),
                     activity.getSupportFragmentManager(),
                     directionalPadInput);
             test.startTest();
@@ -287,7 +302,7 @@ public class CompatibilityAutoDetectService extends Service {
             DpadTextTrapBugTest test = new DpadTextTrapBugTest(
                     activity.getTestContainer(),
                     FRAME_LAYOUT_MATCH_PARENT,
-                    secAdapter::provideResult,
+                    adaptSecAdapterToTestCallback(secAdapter),
                     directionalPadInput);
             test.startTest();
             cancelCurrentTest = test::cancelTest;
@@ -297,7 +312,7 @@ public class CompatibilityAutoDetectService extends Service {
     private PendingSec<Boolean> createMenuFeatureTest(Runnable openMenu) {
         return SecAdapter.create(handler, secAdapter -> {
             MenuFeatureCompatibilityTest test = new MenuFeatureCompatibilityTest(
-                    secAdapter::provideResult,
+                    adaptSecAdapterToTestCallback(secAdapter),
                     getAccessibilityBinder()
                             .map(b -> (Supplier<Integer>) b::getUiUpdateSerial)
                             .orElseThrow(),

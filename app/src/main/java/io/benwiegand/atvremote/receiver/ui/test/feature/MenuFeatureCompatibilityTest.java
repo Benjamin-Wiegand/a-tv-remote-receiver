@@ -8,6 +8,8 @@ import android.util.Log;
 import java.util.function.Supplier;
 
 import io.benwiegand.atvremote.receiver.ui.test.CompatibilityTest;
+import io.benwiegand.atvremote.receiver.ui.test.exception.TestException;
+import io.benwiegand.atvremote.receiver.ui.test.exception.TestInitFailureException;
 
 public class MenuFeatureCompatibilityTest extends CompatibilityTest {
     private final String TAG = MenuFeatureCompatibilityTest.class.getSimpleName();
@@ -52,8 +54,7 @@ public class MenuFeatureCompatibilityTest extends CompatibilityTest {
     public void tryInitUiSerial() {
         if (uiSerialSettleIterations++ >= UI_SERIAL_SETTLE_MAX_ITERATIONS) {
             Log.e(TAG, "UI serial didn't settle within the maximum allowed time");
-            setResult(false);
-            Log.i(TAG, "test init failure:\n- pass = " + isPass() + "\n- elapsed ms = " + getElapsedTime());
+            setError(new TestInitFailureException("UI serial didn't settle within " + uiSerialSettleIterations * UI_SERIAL_SETTLE_PERIOD + " ms"));
             return;
         }
 
@@ -62,8 +63,7 @@ public class MenuFeatureCompatibilityTest extends CompatibilityTest {
             currentUiSerial = uiSerialGetter.get();
         } catch (Throwable t) {
             Log.e(TAG, "exception while getting ui serial", t);
-            setResult(false);
-            Log.i(TAG, "test init failure:\n- pass = " + isPass() + "\n- elapsed ms = " + getElapsedTime());
+            setError(new TestInitFailureException("failed to get ui serial", t));
             return;
         }
 
@@ -94,7 +94,7 @@ public class MenuFeatureCompatibilityTest extends CompatibilityTest {
                     currentUiSerial = uiSerialGetter.get();
                 } catch (Throwable t) {
                     Log.e(TAG, "exception while getting ui serial", t);
-                    setResult(false);
+                    setError(new TestException("failed to get ui serial", t));
                     return;
                 }
 
