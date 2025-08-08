@@ -125,6 +125,10 @@
             android:launchMode="singleInstance"
             />
 
+        <activity
+            android:name=".ui.test.CompatibilityTestResultsActivity"
+            android:exported="false" />
+
         <service
             android:name=".control.AccessibilityInputService"
             android:exported="false"

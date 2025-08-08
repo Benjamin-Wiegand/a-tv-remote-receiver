@@ -151,6 +151,18 @@
     <string name="input_feature_compatibility_test_quick_settings_action">Quick settings action support</string>
     <string name="input_feature_compatibility_test_home_button">Home button support</string>
 
+    <string name="test_results_expand_text">show advanced info</string>
+    <string name="test_results_collapse_text">hide advanced info</string>
+
+    <string name="compatibility_test_results_title">compatibility test complete</string>
+    <string name="compatibility_test_results_summary_success">A TV Remote Receiver has determined the optimal settings for your device in its current configuration.</string>
+    <string name="compatibility_test_results_summary_fail">A TV Remote Receiver was unable to determine optimal settings for your device.</string>
+    <string name="compatibility_test_results_verdict_header">verdict</string>
+    <string name="compatibility_test_results_verdict_no_significant_problems">No significant problems</string>
+    <string name="compatibility_test_results_verdict_navigation_issues">Some apps may have navigation issues</string>
+    <string name="compatibility_test_results_verdict_tests_failed_to_run">Compatibility tests failed to run</string>
+    <string name="compatibility_test_results_save_button">save compatibility settings</string>
+
 
     <!-- input method preferences -->
     <string name="input_method_preferences_title">Advanced Input Method Configuration</string>

@@ -61,7 +61,10 @@ public class CompatibilityAutoDetectService extends Service {
 
     private Runnable cancelCurrentTest = () -> {};
 
-    private enum TestType {
+    // the summary is currently determined solely based on the dpad tests, as that's the primary input method
+    private CompatibilityTestSummary compatibilityTestSummary = CompatibilityTestSummary.getTestsFailedToRun();
+
+    public enum TestType {
         INPUT_NAVIGATION,
         FEATURE_PRESENCE;
 
@@ -314,7 +317,7 @@ public class CompatibilityAutoDetectService extends Service {
 
         boolean accessibilityDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_basic).orElse(false);
         boolean fakeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_fake_dpad_basic).orElse(false);
-        boolean imeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_basic).orElse(false);
+        boolean imeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_ime_dpad_basic).orElse(false);
         boolean accessibilityAssistedImeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_basic).orElse(false)
                 && getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_assisted_ime_dpad_focus_bug).orElse(false);
 
@@ -328,17 +331,24 @@ public class CompatibilityAutoDetectService extends Service {
         if (accessibilityDpadWorks) {
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_ACCESSIBILITY);
             if (imeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+            compatibilityTestSummary = CompatibilityTestSummary.getNoSignificantProblems();
         } else if (imeDpadWorks && fakeDpadWorks && accessibilityAssistedImeDpadWorks) {
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_ASSISTED_IME_DPAD);
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+            compatibilityTestSummary = CompatibilityTestSummary.getNoSignificantProblems();
         } else if (imeDpadWorks && !imeDpadFocusBugSevere) {
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
             if (fakeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD);
+            compatibilityTestSummary = CompatibilityTestSummary.getNavigationIssues();
         } else if (fakeDpadWorks) {
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_FAKE_DPAD);
             if (imeDpadWorks) dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+            compatibilityTestSummary = CompatibilityTestSummary.getNavigationIssues();
         } else if (imeDpadWorks) {
             dpadPriority.add(CONTROL_PRIORITY_IDENTIFIER_IME);
+            compatibilityTestSummary = CompatibilityTestSummary.getNavigationIssues();
+        } else {
+            compatibilityTestSummary = CompatibilityTestSummary.getTestsFailedToRun();
         }
 
         if (!dpadPriority.isEmpty()) {
@@ -419,8 +429,8 @@ public class CompatibilityAutoDetectService extends Service {
             }
         }
 
-
-        //todo: failed op retry button
+        startActivity(new Intent(this, CompatibilityTestResultsActivity.class)
+                .setFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
     }
 
     public class ServiceBinder extends Binder {
@@ -466,6 +476,18 @@ public class CompatibilityAutoDetectService extends Service {
                         activity.resetForNextTest();
                     })
                     .callMeWhenDone();
+        }
+
+        public List<TestCompletionRecord<Throwable>> getFailedTests() {
+            return failedTests;
+        }
+
+        public List<TestCompletionRecord<?>> getTestResults() {
+            return runTests;
+        }
+
+        public CompatibilityTestSummary getCompatibilityTestSummary() {
+            return compatibilityTestSummary;
         }
 
     }
