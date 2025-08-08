@@ -2,6 +2,7 @@ package io.benwiegand.atvremote.receiver.ui.test;
 
 import android.content.ComponentName;
 import android.content.Intent;
+import android.content.ServiceConnection;
 import android.content.res.ColorStateList;
 import android.os.Bundle;
 import android.os.IBinder;
@@ -22,6 +23,7 @@ import androidx.fragment.app.FragmentActivity;
 import java.util.Optional;
 
 import io.benwiegand.atvremote.receiver.R;
+import io.benwiegand.atvremote.receiver.network.TVRemoteServer;
 import io.benwiegand.atvremote.receiver.stuff.makeshiftbind.MakeshiftServiceConnection;
 import io.benwiegand.atvremote.receiver.ui.GuidedDialogActivity;
 import io.benwiegand.atvremote.receiver.util.UiUtil;
@@ -30,7 +32,9 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
     private final static String TAG = CompatibilityTestResultsActivity.class.getSimpleName();
 
     private final AutoDetectServiceConnection autoDetectServiceConnection = new AutoDetectServiceConnection();
+    private final ServiceConnection serverConnection = new ServerConnection();
     private CompatibilityAutoDetectService.ServiceBinder autoDetectServiceBinder = null;
+    private TVRemoteServer.ServerBinder serverBinder = null;
 
     private final ActivityResultLauncher<GuidedDialogActivity.RequestData> guidedDialogLauncher = registerForActivityResult(new GuidedDialogActivity.Contract(), ignored -> {});
 
@@ -47,6 +51,8 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
                 R.string.test_results_collapse_text);
 
         boolean bindResult = bindService(new Intent(this, CompatibilityAutoDetectService.class), autoDetectServiceConnection, BIND_IMPORTANT);
+        assert bindResult;
+        bindResult = bindService(new Intent(this, TVRemoteServer.class), serverConnection, 0);
         assert bindResult;
 
         getOnBackPressedDispatcher().addCallback(new OnBackPressedCallback(true) {
@@ -70,6 +76,12 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
             unbindService(autoDetectServiceConnection);
         } catch (Throwable t) {
             Log.wtf(TAG, "exception while unbinding compatibility auto detect service", t);
+        }
+
+        try {
+            unbindService(serverConnection);
+        } catch (Throwable t) {
+            Log.wtf(TAG, "exception while unbinding server", t);
         }
     }
 
@@ -134,6 +146,7 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
                 .map(CompatibilityAutoDetectService.ServiceBinder::storeSettings)
                 .ifPresentOrElse(
                         stored -> {
+                            applySettings();
                             if (!stored) {
                                 showStoreFailedDialog();
                                 return;
@@ -170,6 +183,13 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
         ));
     }
 
+    private void applySettings() {
+        getServerBinder().ifPresent(binder -> {
+            Toast.makeText(this, R.string.input_method_preferences_toast_applying_settings, Toast.LENGTH_SHORT).show();
+            binder.regenerateControlScheme();
+        });
+    }
+
     private Optional<CompatibilityAutoDetectService.ServiceBinder> getAutoDetectServiceBinder() {
         return Optional.ofNullable(autoDetectServiceBinder);
     }
@@ -200,6 +220,25 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
         public void onServiceDisconnected(ComponentName name) {
             Log.i(TAG, "compatibility auto detect service disconnected");
             autoDetectServiceBinder = null;
+        }
+    }
+
+    private Optional<TVRemoteServer.ServerBinder> getServerBinder() {
+        return Optional.ofNullable(serverBinder);
+    }
+
+    private class ServerConnection implements ServiceConnection {
+
+        @Override
+        public void onServiceConnected(ComponentName name, IBinder service) {
+            Log.i(TAG, "server binder connected");
+            serverBinder = (TVRemoteServer.ServerBinder) service;
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName name) {
+            Log.i(TAG, "server binder disconnected");
+            serverBinder = null;
         }
     }
 }
