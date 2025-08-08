@@ -57,6 +57,17 @@ public class CompatibilityTestResultsActivity extends FragmentActivity {
         });
     }
 
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+
+        try {
+            unbindService(autoDetectServiceConnection);
+        } catch (Throwable t) {
+            Log.wtf(TAG, "exception while unbinding compatibility auto detect service", t);
+        }
+    }
+
     private void setTestSummary(CompatibilityTestSummary summary) {
         TextView summaryText = findViewById(R.id.summary_text);
         TextView verdictText = findViewById(R.id.compatibility_verdict_text);
