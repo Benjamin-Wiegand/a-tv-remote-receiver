@@ -64,7 +64,11 @@ public class CompatibilityManager {
             if (extraButtons.remove(extraButton)) Log.d(TAG, "- extraButton " + extraButton);
         }
 
-        boolean commitResult = editor.commit();
+        boolean commitResult = editor
+                .putStringSet(KEY_FEATURES, features)
+                .putStringSet(KEY_EXTRA_BUTTONS, extraButtons)
+                .commit();
+
         Log.d(TAG, "capability update commit: " + commitResult);
         return commitResult;
     }
