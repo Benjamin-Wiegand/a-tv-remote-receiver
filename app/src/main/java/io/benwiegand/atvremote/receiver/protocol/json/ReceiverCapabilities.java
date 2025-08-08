@@ -17,46 +17,6 @@ public record ReceiverCapabilities(
         HashSet<String> extraButtons
 ) {
 
-    public static ReceiverCapabilities getCapabilities(Context context, ControlScheme scheme) {
-        PackageManager pm = context.getPackageManager();
-
-        HashSet<String> features = new HashSet<>();
-        HashSet<String> buttons = new HashSet<>();
-
-        // for now always assume support for these
-        features.add(SUPPORTED_FEATURE_APP_SWITCHER);
-        features.add(SUPPORTED_FEATURE_QUICK_SETTINGS);
-        features.add(SUPPORTED_FEATURE_HOME_BUTTON);
-        features.add(SUPPORTED_FEATURE_NOTIFICATIONS);
-        features.add(SUPPORTED_FEATURE_MEDIA_SESSIONS);
-        features.add(SUPPORTED_FEATURE_MEDIA_CONTROLS);
-        features.add(SUPPORTED_FEATURE_MOUSE);
-        features.add(SUPPORTED_FEATURE_VOLUME);
-        features.add(SUPPORTED_FEATURE_POWER_BUTTON);
-
-        if (supportsDashboardButton(pm)) buttons.add(EXTRA_BUTTON_GTV_DASHBOARD);
-        if (supportsLineageSystemOptionsButton(pm)) buttons.add(EXTRA_BUTTON_LINEAGE_SYSTEM_OPTIONS);
-
-        return new ReceiverCapabilities(features, buttons);
-    }
-
-    private static boolean checkForActivity(PackageManager pm, ComponentName componentName) {
-        try {
-            pm.getActivityInfo(componentName, 0);
-            return true;
-        } catch (PackageManager.NameNotFoundException e) {
-            return false;
-        }
-    }
-
-    private static boolean supportsDashboardButton(PackageManager pm) {
-        return checkForActivity(pm, GOOGLE_TV_DASHBOARD_ACTIVITY);
-    }
-
-    private static boolean supportsLineageSystemOptionsButton(PackageManager pm) {
-        return checkForActivity(pm, LINEAGE_SYSTEM_OPTIONS_ACTIVITY);
-    }
-
     // non-TV builds
     public static final String SUPPORTED_FEATURE_APP_SWITCHER = "APP_SWITCHER";
     public static final String SUPPORTED_FEATURE_QUICK_SETTINGS = "QUICK_SETTINGS";

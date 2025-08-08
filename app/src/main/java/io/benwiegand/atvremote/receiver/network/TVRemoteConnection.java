@@ -207,7 +207,7 @@ public class TVRemoteConnection implements Closeable {
     }
 
     private void exchangeMeta() throws IOException, InterruptedException {
-        writer.sendLine(OP_META + " " + gson.toJson(ReceiverDeviceMeta.getDeviceMeta(context, controlScheme)));
+        writer.sendLine(OP_META + " " + gson.toJson(ReceiverDeviceMeta.getDeviceMeta(context)));
 
         String line = reader.nextLine(SOCKET_AUTH_TIMEOUT);
         if (line == null) {
