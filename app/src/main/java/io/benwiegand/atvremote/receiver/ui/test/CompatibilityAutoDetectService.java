@@ -342,8 +342,6 @@ public class CompatibilityAutoDetectService extends Service {
      * @return Supplier which will store compatibility settings when called. the result will be false if a preference update fails.
      */
     private Supplier<Boolean> storeDpadResults(CompatibilityManager compatibilityManager) {
-        Log.d(TAG, "storing dpad results");
-
         boolean accessibilityDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_accessibility_dpad_basic).orElse(false);
         boolean fakeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_fake_dpad_basic).orElse(false);
         boolean imeDpadWorks = getCompatibilityTestResultBoolean(R.string.input_compatibility_test_ime_dpad_basic).orElse(false);
@@ -398,7 +396,6 @@ public class CompatibilityAutoDetectService extends Service {
      * @return Supplier which will store compatibility settings when called. the result will be false if a preference update fails.
      */
     private Supplier<Boolean> storeCapabilityResults(CompatibilityManager compatibilityManager) {
-        Log.d(TAG, "storing capability results");
         HashSet<String> supportedFeatures = new HashSet<>();
         HashSet<String> unsupportedFeatures = new HashSet<>();
 
